@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_DB={{ spec.slug | replace("-", "_") }}
+{% if spec.auth.enabled %}
+      - JWT_SECRET_KEY=change-me-in-production
+{% endif %}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  mongodb:
+    image: mongo:8
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE={{ spec.slug | replace("-", "_") }}
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  mongodb_data:

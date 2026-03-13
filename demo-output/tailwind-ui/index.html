@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veterinary Clinic</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .modal-backdrop { transition: opacity 0.15s ease; }
+    .modal-panel { transition: transform 0.15s ease, opacity 0.15s ease; }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+<!-- ── Header ────────────────────────────────────────────── -->
+<header class="bg-white border-b border-gray-200 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Veterinary Clinic</h1>
+      <p class="text-sm text-gray-500 mt-0.5">A comprehensive application for managing pet owners, their pets (patients), and all associated appointments within a veterinary clinic.</p>
+    </div>
+    <span class="text-xs text-gray-400">AppSpec v1.0</span>
+  </div>
+</header>
+
+<!-- ── Entity Tabs ───────────────────────────────────────── -->
+<nav class="bg-white border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-1 overflow-x-auto" id="entity-tabs">
+    <button
+      data-collection="owners"
+      onclick="switchTab('owners')"
+      class="tab-btn px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors
+             border-indigo-500 text-indigo-600"
+    >Owner</button>
+    <button
+      data-collection="patients"
+      onclick="switchTab('patients')"
+      class="tab-btn px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors
+             border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+    >Patient</button>
+    <button
+      data-collection="appointments"
+      onclick="switchTab('appointments')"
+      class="tab-btn px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors
+             border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+    >Appointment</button>
+    <div class="ml-auto flex items-center gap-2 py-2">
+      <button onclick="openCreateModal()" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        New
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main Content ──────────────────────────────────────── -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+  <!-- Filters -->
+  <div id="filter-bar" class="flex flex-wrap gap-3 mb-4"></div>
+
+  <!-- Status -->
+  <div id="status-bar" class="flex items-center justify-between mb-3">
+    <span id="record-count" class="text-sm text-gray-500"></span>
+    <button onclick="loadData()" class="text-sm text-indigo-600 hover:text-indigo-800">Refresh</button>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200" id="data-table">
+        <thead class="bg-gray-50" id="table-head"></thead>
+        <tbody class="divide-y divide-gray-200" id="table-body"></tbody>
+      </table>
+    </div>
+    <div id="empty-state" class="hidden p-12 text-center text-gray-400">
+      <p class="text-lg">No records yet</p>
+      <p class="text-sm mt-1">Click <strong>New</strong> to create one.</p>
+    </div>
+  </div>
+</main>
+
+<!-- ── Modal ─────────────────────────────────────────────── -->
+<div id="modal" class="hidden fixed inset-0 z-50">
+  <div class="modal-backdrop fixed inset-0 bg-black/40" onclick="closeModal()"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+    <div class="modal-panel bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto pointer-events-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h2 id="modal-title" class="text-lg font-semibold"></h2>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form id="modal-form" class="px-6 py-4 space-y-4" onsubmit="handleSubmit(event)">
+        <div id="form-fields"></div>
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete Confirm ────────────────────────────────────── -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50">
+  <div class="modal-backdrop fixed inset-0 bg-black/40" onclick="closeDeleteModal()"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+    <div class="modal-panel bg-white rounded-xl shadow-2xl w-full max-w-sm pointer-events-auto p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Record</h3>
+      <p class="text-sm text-gray-500 mb-6">This action cannot be undone. Are you sure?</p>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeDeleteModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+        <button onclick="confirmDelete()" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────── -->
+<div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white transition-opacity"></div>
+
+<script>
+// ── Configuration ──────────────────────────────────────────
+const API_BASE = new URLSearchParams(window.location.search).get('api') || '/api';
+
+// ── Entity Metadata (generated from AppSpec) ───────────────
+const ENTITIES = {
+  'owners': {
+    name: 'Owner',
+    collection: 'owners',
+    fields: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        label: 'Id',
+        filterable: false,
+        sortable: false,
+        unique: false,
+        description: 'Unique identifier for the owner.',
+      },
+      {
+        name: 'first_name',
+        type: 'string',
+        required: true,
+        label: 'First Name',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The first name of the pet owner.',
+      },
+      {
+        name: 'last_name',
+        type: 'string',
+        required: true,
+        label: 'Last Name',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The last name of the pet owner.',
+      },
+      {
+        name: 'email',
+        type: 'string',
+        required: true,
+        label: 'Email',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The email address of the pet owner, used for communication.',
+      },
+      {
+        name: 'phone_number',
+        type: 'string',
+        required: true,
+        label: 'Phone Number',
+        filterable: false,
+        sortable: false,
+        unique: false,
+        description: 'The primary phone number of the pet owner.',
+      },
+      {
+        name: 'address',
+        type: 'string',
+        required: true,
+        label: 'Address',
+        filterable: false,
+        sortable: false,
+        unique: false,
+        description: 'The physical address of the pet owner.',
+      },
+      {
+        name: 'created_at',
+        type: 'datetime',
+        required: true,
+        label: 'Created At',
+        filterable: false,
+        sortable: true,
+        unique: false,
+        description: 'Timestamp when the owner record was created.',
+      },
+    ],
+  },
+  'patients': {
+    name: 'Patient',
+    collection: 'patients',
+    fields: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        label: 'Id',
+        filterable: false,
+        sortable: false,
+        unique: false,
+        description: 'Unique identifier for the patient (pet).',
+      },
+      {
+        name: 'name',
+        type: 'string',
+        required: true,
+        label: 'Name',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The name of the pet.',
+      },
+      {
+        name: 'species',
+        type: 'string',
+        required: true,
+        label: 'Species',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The species of the pet (e.g., Dog, Cat, Bird).',
+      },
+      {
+        name: 'breed',
+        type: 'string',
+        required: true,
+        label: 'Breed',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The breed of the pet.',
+      },
+      {
+        name: 'date_of_birth',
+        type: 'datetime',
+        required: true,
+        label: 'Date Of Birth',
+        filterable: false,
+        sortable: true,
+        unique: false,
+        description: 'The birth date of the pet.',
+      },
+      {
+        name: 'owner_id',
+        type: 'reference',
+        required: true,
+        label: 'Owner Id',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'Reference to the owner of this pet.',
+      },
+      {
+        name: 'created_at',
+        type: 'datetime',
+        required: true,
+        label: 'Created At',
+        filterable: false,
+        sortable: true,
+        unique: false,
+        description: 'Timestamp when the patient record was created.',
+      },
+    ],
+  },
+  'appointments': {
+    name: 'Appointment',
+    collection: 'appointments',
+    fields: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        label: 'Id',
+        filterable: false,
+        sortable: false,
+        unique: false,
+        description: 'Unique identifier for the appointment.',
+      },
+      {
+        name: 'patient_id',
+        type: 'reference',
+        required: true,
+        label: 'Patient Id',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'Reference to the patient (pet) for this appointment.',
+      },
+      {
+        name: 'owner_id',
+        type: 'reference',
+        required: true,
+        label: 'Owner Id',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'Reference to the owner associated with this appointment.',
+      },
+      {
+        name: 'appointment_date',
+        type: 'datetime',
+        required: true,
+        label: 'Appointment Date',
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The date and time of the appointment.',
+      },
+      {
+        name: 'reason',
+        type: 'string',
+        required: true,
+        label: 'Reason',
+        filterable: true,
+        sortable: false,
+        unique: false,
+        description: 'The reason for the appointment (e.g., check-up, vaccination, emergency).',
+      },
+      {
+        name: 'status',
+        type: 'enum',
+        required: true,
+        label: 'Status',
+        enumValues: ["scheduled", "completed", "cancelled", "no_show"],
+        filterable: true,
+        sortable: true,
+        unique: false,
+        description: 'The current status of the appointment.',
+      },
+      {
+        name: 'notes',
+        type: 'text',
+        required: true,
+        label: 'Notes',
+        filterable: false,
+        sortable: false,
+        unique: false,
+        description: 'Any additional notes or observations for the appointment.',
+      },
+      {
+        name: 'created_at',
+        type: 'datetime',
+        required: true,
+        label: 'Created At',
+        filterable: false,
+        sortable: true,
+        unique: false,
+        description: 'Timestamp when the appointment record was created.',
+      },
+    ],
+  },
+};
+
+const ENTITY_ORDER = ['owners', 'patients', 'appointments'];
+
+// ── State ──────────────────────────────────────────────────
+let activeCollection = ENTITY_ORDER[0];
+let currentData = [];
+let editingId = null;
+let deletingId = null;
+let sortField = null;
+let sortDir = 1;
+let filters = {};
+
+// ── API Layer ──────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE}${path}`, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || err.message || res.statusText);
+  }
+  if (res.status === 204 || method === 'DELETE') {
+    return res.status < 300 ? await res.json().catch(() => ({})) : {};
+  }
+  return res.json();
+}
+
+const fetchList   = (coll)       => api('GET', `/${coll}`);
+const createOne   = (coll, data) => api('POST', `/${coll}`, data);
+const updateOne   = (coll, id, d)=> api('PUT', `/${coll}/${id}`, d);
+const deleteOne   = (coll, id)   => api('DELETE', `/${coll}/${id}`);
+
+// ── Tab Switching ──────────────────────────────────────────
+function switchTab(collection) {
+  activeCollection = collection;
+  filters = {};
+  sortField = null;
+  sortDir = 1;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const active = btn.dataset.collection === collection;
+    btn.classList.toggle('border-indigo-500', active);
+    btn.classList.toggle('text-indigo-600', active);
+    btn.classList.toggle('border-transparent', !active);
+    btn.classList.toggle('text-gray-500', !active);
+  });
+  loadData();
+}
+
+// ── Data Loading ───────────────────────────────────────────
+async function loadData() {
+  const entity = ENTITIES[activeCollection];
+  try {
+    let data = await fetchList(activeCollection);
+
+    // Client-side filtering
+    for (const [field, value] of Object.entries(filters)) {
+      if (value) data = data.filter(d => String(d[field]) === value);
+    }
+
+    // Client-side sorting
+    if (sortField) {
+      data.sort((a, b) => {
+        const va = a[sortField] ?? '', vb = b[sortField] ?? '';
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
+        return String(va).localeCompare(String(vb)) * sortDir;
+      });
+    }
+
+    currentData = data;
+    renderTable(entity, data);
+    renderFilters(entity);
+    document.getElementById('record-count').textContent = `${data.length} record${data.length !== 1 ? 's' : ''}`;
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ── Table Rendering ────────────────────────────────────────
+function renderTable(entity, data) {
+  const head = document.getElementById('table-head');
+  const body = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+  const visibleFields = entity.fields.filter(f => f.type !== 'text');
+
+  // Header
+  head.innerHTML = `<tr>
+    ${visibleFields.map(f => `
+      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider
+                 ${f.sortable ? 'cursor-pointer hover:text-gray-700 select-none' : ''}"
+          ${f.sortable ? `onclick="toggleSort('${f.name}')"` : ''}>
+        ${f.label}
+        ${f.sortable ? `<span class="ml-1 text-indigo-400">${sortField === f.name ? (sortDir === 1 ? '↑' : '↓') : '⇅'}</span>` : ''}
+      </th>`).join('')}
+    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
+  </tr>`;
+
+  // Body
+  if (!data.length) {
+    body.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  body.innerHTML = data.map(doc => {
+    const id = doc._id || doc.id;
+    return `<tr class="hover:bg-gray-50 transition-colors">
+      ${visibleFields.map(f => `<td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">${formatCell(doc[f.name], f)}</td>`).join('')}
+      <td class="px-4 py-3 text-sm text-right whitespace-nowrap">
+        <button onclick="openEditModal('${id}')" class="text-indigo-600 hover:text-indigo-800 mr-2">Edit</button>
+        <button onclick="openDeleteModal('${id}')" class="text-red-500 hover:text-red-700">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function formatCell(value, field) {
+  if (value === null || value === undefined) return '<span class="text-gray-300">—</span>';
+  if (field.type === 'boolean') return value
+    ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Yes</span>'
+    : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">No</span>';
+  if (field.type === 'enum') return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">${value}</span>`;
+  if (field.type === 'datetime') {
+    try { return new Date(value).toLocaleDateString(); } catch { return value; }
+  }
+  if (field.type === 'float' || field.type === 'integer') return `<span class="font-mono">${value}</span>`;
+  if (typeof value === 'string' && value.length > 60) return value.slice(0, 57) + '…';
+  return String(value);
+}
+
+// ── Filter Rendering ───────────────────────────────────────
+function renderFilters(entity) {
+  const bar = document.getElementById('filter-bar');
+  const filterFields = entity.fields.filter(f => f.filterable && f.enumValues);
+  if (!filterFields.length) { bar.innerHTML = ''; return; }
+
+  bar.innerHTML = filterFields.map(f => `
+    <div class="flex items-center gap-2">
+      <label class="text-xs font-medium text-gray-500 uppercase">${f.label}</label>
+      <select onchange="setFilter('${f.name}', this.value)"
+              class="text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 py-1 px-2">
+        <option value="">All</option>
+        ${f.enumValues.map(v => `<option value="${v}" ${filters[f.name] === v ? 'selected' : ''}>${v}</option>`).join('')}
+      </select>
+    </div>`).join('');
+}
+
+function setFilter(field, value) {
+  if (value) filters[field] = value;
+  else delete filters[field];
+  loadData();
+}
+
+function toggleSort(field) {
+  if (sortField === field) sortDir *= -1;
+  else { sortField = field; sortDir = 1; }
+  loadData();
+}
+
+// ── Form Rendering ─────────────────────────────────────────
+function renderForm(entity, doc = null) {
+  const container = document.getElementById('form-fields');
+  container.innerHTML = entity.fields.map(f => {
+    const val = doc ? (doc[f.name] ?? '') : '';
+    const req = f.required ? 'required' : '';
+    const id = `field-${f.name}`;
+
+    let input = '';
+    switch (f.type) {
+      case 'enum':
+        input = `<select id="${id}" name="${f.name}" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">
+                   <option value="">Select...</option>
+                   ${(f.enumValues||[]).map(v => `<option value="${v}" ${val === v ? 'selected' : ''}>${v}</option>`).join('')}
+                 </select>`;
+        break;
+      case 'boolean':
+        input = `<div class="mt-2"><label class="inline-flex items-center gap-2">
+                   <input type="checkbox" id="${id}" name="${f.name}" ${val ? 'checked' : ''}
+                     class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                   <span class="text-sm text-gray-600">Enabled</span></label></div>`;
+        break;
+      case 'integer':
+      case 'float':
+        input = `<input type="number" id="${id}" name="${f.name}" value="${val}" ${req}
+                   ${f.type === 'float' ? 'step="any"' : 'step="1"'}
+                   ${f.min !== undefined ? `min="${f.min}"` : ''} ${f.max !== undefined ? `max="${f.max}"` : ''}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+        break;
+      case 'datetime':
+        const dtVal = val ? new Date(val).toISOString().slice(0, 16) : '';
+        input = `<input type="datetime-local" id="${id}" name="${f.name}" value="${dtVal}" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+        break;
+      case 'email':
+        input = `<input type="email" id="${id}" name="${f.name}" value="${val}" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+        break;
+      case 'text':
+        input = `<textarea id="${id}" name="${f.name}" rows="3" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">${val}</textarea>`;
+        break;
+      default:
+        input = `<input type="text" id="${id}" name="${f.name}" value="${val}" ${req}
+                   ${f.maxLength ? `maxlength="${f.maxLength}"` : ''}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+    }
+
+    return `<div>
+      <label for="${id}" class="block text-sm font-medium text-gray-700">${f.label}${f.required ? ' <span class="text-red-400">*</span>' : ''}</label>
+      ${input}
+      ${f.description ? `<p class="mt-1 text-xs text-gray-400">${f.description}</p>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Modal Controls ─────────────────────────────────────────
+function openCreateModal() {
+  editingId = null;
+  const entity = ENTITIES[activeCollection];
+  document.getElementById('modal-title').textContent = `New ${entity.name}`;
+  renderForm(entity);
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function openEditModal(id) {
+  editingId = id;
+  const entity = ENTITIES[activeCollection];
+  const doc = currentData.find(d => (d._id || d.id) === id);
+  if (!doc) return;
+  document.getElementById('modal-title').textContent = `Edit ${entity.name}`;
+  renderForm(entity, doc);
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  editingId = null;
+}
+
+function openDeleteModal(id) {
+  deletingId = id;
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.add('hidden');
+  deletingId = null;
+}
+
+// ── Form Submission ────────────────────────────────────────
+async function handleSubmit(e) {
+  e.preventDefault();
+  const entity = ENTITIES[activeCollection];
+  const formData = {};
+
+  entity.fields.forEach(f => {
+    const el = document.getElementById(`field-${f.name}`);
+    if (!el) return;
+    if (f.type === 'boolean') {
+      formData[f.name] = el.checked;
+    } else if (f.type === 'integer') {
+      formData[f.name] = el.value ? parseInt(el.value, 10) : null;
+    } else if (f.type === 'float') {
+      formData[f.name] = el.value ? parseFloat(el.value) : null;
+    } else if (f.type === 'datetime') {
+      formData[f.name] = el.value ? new Date(el.value).toISOString() : null;
+    } else {
+      formData[f.name] = el.value || null;
+    }
+    if (formData[f.name] === null && !f.required) delete formData[f.name];
+  });
+
+  try {
+    if (editingId) {
+      await updateOne(activeCollection, editingId, formData);
+      showToast(`${entity.name} updated`);
+    } else {
+      await createOne(activeCollection, formData);
+      showToast(`${entity.name} created`);
+    }
+    closeModal();
+    loadData();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function confirmDelete() {
+  if (!deletingId) return;
+  const entity = ENTITIES[activeCollection];
+  try {
+    await deleteOne(activeCollection, deletingId);
+    showToast(`${entity.name} deleted`);
+    closeDeleteModal();
+    loadData();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────
+function showToast(message, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.className = `fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white transition-opacity ${type === 'error' ? 'bg-red-600' : 'bg-green-600'}`;
+  setTimeout(() => el.classList.add('opacity-0'), 2500);
+  setTimeout(() => { el.classList.add('hidden'); el.classList.remove('opacity-0'); }, 3000);
+}
+
+// ── Init ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => loadData());
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pymongo>=4.16
+pydantic>=2.7
+python-dotenv>=1.0
+{% if spec.auth.enabled %}
+python-multipart>=0.0.7
+python-jose[cryptography]>=3.3
+passlib[bcrypt]>=1.7
+bcrypt>=4.0,<4.1
+{% endif %}

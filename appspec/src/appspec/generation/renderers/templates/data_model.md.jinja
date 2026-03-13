@@ -1,0 +1,84 @@
+# Data Model Specification
+
+> Auto-generated from `appspec.json` — {{ spec.app_name }} ({{ spec.slug }})
+
+## Overview
+
+**Application:** {{ spec.app_name }}
+**Entities:** {{ spec.entities | length }}
+**Schema Version:** {{ spec.schema_version }}
+
+{% if spec.description %}
+{{ spec.description }}
+{% endif %}
+
+---
+
+{% for entity in spec.entities %}
+## {{ entity.name }}
+
+**Collection:** `{{ entity.collection }}`
+{% if entity.description %}
+{{ entity.description }}
+{% endif %}
+
+{% if entity.is_time_series %}
+> **Time-Series Collection** — `timeField: {{ entity.time_field }}`{% if entity.meta_field %}, `metaField: {{ entity.meta_field }}`{% endif %}
+
+{% endif %}
+### Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+{% for field in entity.fields %}
+| `{{ field.name }}` | {{ field.type.value }}{% if field.type.value == "enum" %} ({{ field.enum_values | join(", ") }}){% endif %}{% if field.type.value == "reference" %} → `{{ field.reference }}`{% endif %} | {{ "Yes" if field.required else "No" }} | {{ field.description or "—" }} |
+{% endfor %}
+
+{% set filterable = entity.fields | selectattr("is_filterable") | list %}
+{% set sortable = entity.fields | selectattr("is_sortable") | list %}
+{% set unique = entity.fields | selectattr("is_unique") | list %}
+{% if filterable %}
+**Filterable:** {{ filterable | map(attribute="name") | join(", ") }}
+{% endif %}
+{% if sortable %}
+**Sortable:** {{ sortable | map(attribute="name") | join(", ") }}
+{% endif %}
+{% if unique %}
+**Unique:** {{ unique | map(attribute="name") | join(", ") }}
+{% endif %}
+
+{% if entity.relationships %}
+### Relationships
+
+{% for rel in entity.relationships %}
+- → **{{ rel }}**
+{% endfor %}
+{% endif %}
+
+{% if entity.embedded_entities %}
+### Embedded Documents
+
+{% for emb in entity.embedded_entities %}
+#### {{ emb.name }}
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+{% for field in emb.fields %}
+| `{{ field.name }}` | {{ field.type.value }} | {{ "Yes" if field.required else "No" }} | {{ field.description or "—" }} |
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+
+{% if entity.indexes %}
+### Indexes
+
+{% for idx in entity.indexes %}
+- {% if idx.name %}`{{ idx.name }}`{% else %}(auto){% endif %} — {{ idx.type.value }}: `{{ idx.keys }}`{% if idx.sparse %} (sparse){% endif %}
+
+{% endfor %}
+{% endif %}
+
+---
+
+{% endfor %}

@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "appspec"
+version = "0.1.0"
+description = "The Document Model for AI Code Generation. Structured JSON specs, human-readable Markdown, deterministic code generation."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "AppSpec Contributors" }]
+keywords = ["ai", "code-generation", "mongodb", "spec", "document-model"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Code Generators",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "jinja2>=3.1",
+    "click>=8.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+llm = ["litellm>=1.40"]
+mongodb = ["pymongo>=4.16"]
+all = ["appspec[llm]", "appspec[mongodb]"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
+
+[project.scripts]
+appspec = "appspec.cli.main:main"
+
+[project.entry-points."appspec.targets"]
+
+[project.urls]
+Homepage = "https://github.com/mongodb/appspec"
+Documentation = "https://github.com/mongodb/appspec#readme"
+Repository = "https://github.com/mongodb/appspec"
+
+[tool.hatch.build]
+include = ["src/appspec/**"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/appspec"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

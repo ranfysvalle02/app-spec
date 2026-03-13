@@ -1,0 +1,121 @@
+{
+  "owners": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "title": "Owner",
+      "description": "Owner document",
+      "required": ["id", "first_name", "last_name", "email", "phone_number", "address", "created_at"],
+      "properties": {
+        "id": {
+          "bsonType": "string",
+          "description": "Unique identifier for the owner."
+        },
+        "first_name": {
+          "bsonType": "string",
+          "description": "The first name of the pet owner."
+        },
+        "last_name": {
+          "bsonType": "string",
+          "description": "The last name of the pet owner."
+        },
+        "email": {
+          "bsonType": "string",
+          "description": "The email address of the pet owner, used for communication."
+        },
+        "phone_number": {
+          "bsonType": "string",
+          "description": "The primary phone number of the pet owner."
+        },
+        "address": {
+          "bsonType": "string",
+          "description": "The physical address of the pet owner."
+        },
+        "created_at": {
+          "bsonType": "date",
+          "description": "Timestamp when the owner record was created."
+        }
+      }
+    }
+  },
+  "patients": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "title": "Patient",
+      "description": "Patient document",
+      "required": ["id", "name", "species", "breed", "date_of_birth", "owner_id", "created_at"],
+      "properties": {
+        "id": {
+          "bsonType": "string",
+          "description": "Unique identifier for the patient (pet)."
+        },
+        "name": {
+          "bsonType": "string",
+          "description": "The name of the pet."
+        },
+        "species": {
+          "bsonType": "string",
+          "description": "The species of the pet (e.g., Dog, Cat, Bird)."
+        },
+        "breed": {
+          "bsonType": "string",
+          "description": "The breed of the pet."
+        },
+        "date_of_birth": {
+          "bsonType": "date",
+          "description": "The birth date of the pet."
+        },
+        "owner_id": {
+          "bsonType": "objectId",
+          "description": "Reference to the owner of this pet."
+        },
+        "created_at": {
+          "bsonType": "date",
+          "description": "Timestamp when the patient record was created."
+        }
+      }
+    }
+  },
+  "appointments": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "title": "Appointment",
+      "description": "Appointment document",
+      "required": ["id", "patient_id", "owner_id", "appointment_date", "reason", "status", "notes", "created_at"],
+      "properties": {
+        "id": {
+          "bsonType": "string",
+          "description": "Unique identifier for the appointment."
+        },
+        "patient_id": {
+          "bsonType": "objectId",
+          "description": "Reference to the patient (pet) for this appointment."
+        },
+        "owner_id": {
+          "bsonType": "objectId",
+          "description": "Reference to the owner associated with this appointment."
+        },
+        "appointment_date": {
+          "bsonType": "date",
+          "description": "The date and time of the appointment."
+        },
+        "reason": {
+          "bsonType": "string",
+          "description": "The reason for the appointment (e.g., check-up, vaccination, emergency)."
+        },
+        "status": {
+          "bsonType": "string",
+          "description": "The current status of the appointment.",
+          "enum": ["scheduled", "completed", "cancelled", "no_show"]
+        },
+        "notes": {
+          "bsonType": "string",
+          "description": "Any additional notes or observations for the appointment."
+        },
+        "created_at": {
+          "bsonType": "date",
+          "description": "Timestamp when the appointment record was created."
+        }
+      }
+    }
+  }
+}

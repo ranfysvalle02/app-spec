@@ -1,0 +1,60 @@
+# API Specification
+
+> Auto-generated from `appspec.json` — {{ spec.app_name }} ({{ spec.slug }})
+
+## Overview
+
+**Application:** {{ spec.app_name }}
+**Endpoints:** {{ spec.endpoints | length }}
+{% if spec.auth.enabled %}
+**Authentication:** {{ spec.auth.strategy }}
+{% if spec.auth.roles %}**Roles:** {{ spec.auth.roles | join(", ") }}{% endif %}
+
+{% if spec.auth.default_role %}**Default Role:** {{ spec.auth.default_role }}{% endif %}
+
+{% else %}
+**Authentication:** Disabled
+{% endif %}
+
+---
+
+{% if spec.auth.enabled %}
+## Authentication
+
+| Property | Value |
+|----------|-------|
+| Strategy | {{ spec.auth.strategy }} |
+| Roles | {{ spec.auth.roles | join(", ") if spec.auth.roles else "None" }} |
+| Default Role | {{ spec.auth.default_role or "None" }} |
+
+{% endif %}
+## Endpoints
+
+{% set entities_with_endpoints = spec.endpoints | map(attribute="entity") | unique | list %}
+{% for entity_name in entities_with_endpoints %}
+### {{ entity_name }}
+
+| Method | Path | Operation | Auth | Description |
+|--------|------|-----------|------|-------------|
+{% for ep in spec.endpoints if ep.entity == entity_name %}
+| `{{ ep.method.value }}` | `{{ ep.path }}` | {{ ep.operation.value }} | {{ "Yes" if ep.auth_required else "No" }}{% if ep.roles %} ({{ ep.roles | join(", ") }}){% endif %} | {{ ep.description or "—" }} |
+{% endfor %}
+
+{% for ep in spec.endpoints if ep.entity == entity_name %}
+{% if ep.filters or ep.sort_fields %}
+#### `{{ ep.method.value }} {{ ep.path }}`
+
+{% if ep.filters %}
+**Filters:** {{ ep.filters | join(", ") }}
+{% endif %}
+{% if ep.sort_fields %}
+**Sort:** {{ ep.sort_fields | join(", ") }}
+{% endif %}
+
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+{% if not spec.endpoints %}
+*No endpoints defined yet.*
+{% endif %}

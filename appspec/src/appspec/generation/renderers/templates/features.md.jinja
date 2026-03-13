@@ -1,0 +1,68 @@
+# Features Specification
+
+> Auto-generated from `appspec.json` — {{ spec.app_name }} ({{ spec.slug }})
+
+## Overview
+
+**Application:** {{ spec.app_name }}
+{% if spec.description %}
+{{ spec.description }}
+{% endif %}
+
+---
+
+## Application Profile
+
+| Property | Value |
+|----------|-------|
+| Name | {{ spec.app_name }} |
+| Slug | `{{ spec.slug }}` |
+| Schema Version | {{ spec.schema_version }} |
+| Auth Enabled | {{ "Yes" if spec.auth.enabled else "No" }} |
+| Entities | {{ spec.entities | length }} |
+| Endpoints | {{ spec.endpoints | length }} |
+| UI Framework | {{ spec.ui.framework }} |
+
+{% if spec.ui.pages %}
+## Pages
+
+{% for page in spec.ui.pages %}
+### {{ page.label }}{% if page.is_default %} (default){% endif %}
+
+
+**ID:** `{{ page.id }}`
+{% if page.description %}
+{{ page.description }}
+{% endif %}
+
+{% if page.data_collections %}
+**Data Sources:** {{ page.data_collections | join(", ") }}
+{% endif %}
+
+{% if page.sections %}
+| Section | Type | Data Source |
+|---------|------|-------------|
+{% for section in page.sections %}
+| {{ section.title or section.id }} | {{ section.type }} | {{ section.data_source or "—" }} |
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if spec.sample_data %}
+## Sample Data
+
+{% for collection, docs in spec.sample_data.items() %}
+### `{{ collection }}` ({{ docs | length }} sample{{ "s" if docs | length != 1 else "" }})
+
+{% endfor %}
+{% endif %}
+
+{% if spec.metadata %}
+## Metadata
+
+{% for key, value in spec.metadata.items() %}
+- **{{ key }}:** {{ value }}
+{% endfor %}
+{% endif %}

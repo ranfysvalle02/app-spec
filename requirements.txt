@@ -1,0 +1,10 @@
+fastapi==0.116.2
+uvicorn[standard]==0.41.0
+python-dotenv==1.2.1
+mdb-engine==0.8.1
+litellm==1.81.6
+pydantic==2.12.5
+jinja2==3.1.6
+click==8.1.8
+rich==14.3.3
+python-json-logger==2.0.7

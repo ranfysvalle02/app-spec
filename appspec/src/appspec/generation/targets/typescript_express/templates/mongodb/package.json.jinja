@@ -1,0 +1,31 @@
+{
+  "name": "{{ spec.slug }}",
+  "version": "0.1.0",
+  "description": "{{ spec.description }}",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+{% if spec.auth.enabled %}
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+{% endif %}
+    "mongoose": "^8.5.0"
+  },
+  "devDependencies": {
+{% if spec.auth.enabled %}
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+{% endif %}
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  }
+}

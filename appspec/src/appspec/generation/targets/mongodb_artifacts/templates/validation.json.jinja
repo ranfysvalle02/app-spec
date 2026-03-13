@@ -1,0 +1,103 @@
+{
+{% for entity in spec.entities %}
+  "{{ entity.collection }}": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "title": "{{ entity.name }}",
+      "description": "{{ entity.description or entity.name ~ ' document' }}",
+{% set required_fields = entity.fields | selectattr("required") | map(attribute="name") | list %}
+{% if required_fields %}
+      "required": {{ required_fields | tojson }},
+{% endif %}
+      "properties": {
+{% for field in entity.fields %}
+{% if field.type.value == "string" or field.type.value == "text" or field.type.value == "email" or field.type.value == "enum" %}
+        "{{ field.name }}": {
+          "bsonType": "string"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}{% if field.enum_values %},
+          "enum": {{ field.enum_values | tojson }}{% endif %}{% if field.max_length %},
+          "maxLength": {{ field.max_length }}{% endif %}{% if field.pattern %},
+          "pattern": "{{ field.pattern }}"{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "integer" %}
+        "{{ field.name }}": {
+          "bsonType": "int"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}{% if field.min_value is not none %},
+          "minimum": {{ field.min_value | int }}{% endif %}{% if field.max_value is not none %},
+          "maximum": {{ field.max_value | int }}{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "float" %}
+        "{{ field.name }}": {
+          "bsonType": "double"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}{% if field.min_value is not none %},
+          "minimum": {{ field.min_value }}{% endif %}{% if field.max_value is not none %},
+          "maximum": {{ field.max_value }}{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "boolean" %}
+        "{{ field.name }}": {
+          "bsonType": "bool"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "datetime" %}
+        "{{ field.name }}": {
+          "bsonType": "date"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "reference" %}
+        "{{ field.name }}": {
+          "bsonType": "objectId"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "array" %}
+        "{{ field.name }}": {
+          "bsonType": "array"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "object" %}
+        "{{ field.name }}": {
+          "bsonType": "object"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "geo_point" %}
+        "{{ field.name }}": {
+          "bsonType": "object",
+          "properties": {
+            "type": { "bsonType": "string", "enum": ["Point"] },
+            "coordinates": { "bsonType": "array" }
+          }
+        }{% if not loop.last %},{% endif %}
+
+{% elif field.type.value == "vector" %}
+        "{{ field.name }}": {
+          "bsonType": "array"{% if field.description %},
+          "description": "{{ field.description }}"{% endif %}
+
+        }{% if not loop.last %},{% endif %}
+
+{% else %}
+        "{{ field.name }}": {}{% if not loop.last %},{% endif %}
+
+{% endif %}
+{% endfor %}
+      }
+    }
+  }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+}

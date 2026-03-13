@@ -1,0 +1,33 @@
+# Change Proposal: {{ change_id }}
+
+**Status:** {{ status | default("proposed") }}
+**Author:** {{ author | default("—") }}
+**Date:** {{ date | default("—") }}
+
+---
+
+## Summary
+
+{{ summary | default("Describe the change and its motivation.") }}
+
+## Rationale
+
+{{ rationale | default("Explain why this change is needed.") }}
+
+## Scope
+
+### Entities Affected
+
+{{ entities_affected | default("- List entities that will change") }}
+
+### Endpoints Affected
+
+{{ endpoints_affected | default("- List endpoints that will change") }}
+
+## Implementation Tasks
+
+{{ tasks | default("- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3") }}
+
+## Spec Delta
+
+See `spec-delta.json` for the structured diff to `appspec.json`.
