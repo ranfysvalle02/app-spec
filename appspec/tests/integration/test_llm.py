@@ -205,8 +205,8 @@ class TestCreateSampleData:
 
         assert "owners" in data
         assert "patients" in data
-        assert len(data["owners"]) == 5
-        assert len(data["patients"]) == 5
+        assert len(data["owners"]) == 10
+        assert len(data["patients"]) == 10
         assert data["owners"][0]["name"] == "Jane Smith"
         assert data["patients"][0]["name"] == "Buddy"
         assert seed_mock.await_args.kwargs["timeout"] == 60
@@ -228,8 +228,8 @@ class TestCreateSampleData:
 
         assert "owners" in data
         assert "patients" in data
-        assert len(data["owners"]) == 5
-        assert len(data["patients"]) == 5
+        assert len(data["owners"]) == 10
+        assert len(data["patients"]) == 10
         assert "owner_id" not in data["patients"][0]
         assert "name" in data["owners"][0]
 

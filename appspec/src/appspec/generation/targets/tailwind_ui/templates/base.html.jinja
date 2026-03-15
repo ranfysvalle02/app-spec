@@ -217,7 +217,12 @@ async function fetchAll(collection) {
 
 const _fetchCache = {};
 async function fetchAllCached(collection) {
-  if (!_fetchCache[collection]) _fetchCache[collection] = fetchAll(collection);
+  if (!_fetchCache[collection]) {
+    _fetchCache[collection] = fetchAll(collection).catch(err => {
+      delete _fetchCache[collection];
+      throw err;
+    });
+  }
   return _fetchCache[collection];
 }
 function invalidateCache(collection) {
@@ -305,11 +310,13 @@ window.addEventListener('hashchange', () => {
 
 function initActivePage() {
   if (!activePage) return;
-  for (const section of activePage.sections) {
-    if (SECTION_INIT[section.id]) {
-      SECTION_INIT[section.id]();
+  requestAnimationFrame(() => {
+    for (const section of activePage.sections) {
+      if (SECTION_INIT[section.id]) {
+        SECTION_INIT[section.id]();
+      }
     }
-  }
+  });
 }
 
 function refreshDependentSections(collection) {
@@ -752,6 +759,13 @@ async function initChart(sectionId) {
 
     if (chartInstances[sectionId]) chartInstances[sectionId].destroy();
 
+    if (!data.length) {
+      canvas.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-sm text-gray-400">'
+        + '<svg class="w-5 h-5 mr-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3v18h18"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16l4-4 4 4 4-6"/></svg>'
+        + 'No data yet</div>';
+      return;
+    }
+
     let groupField = cfg.group_by;
     if (!groupField && !cfg.x_field) {
       const entity = ENTITIES[sec.data_source];
@@ -809,6 +823,10 @@ async function initChart(sectionId) {
     }
   } catch (err) {
     console.error('Chart init error:', err);
+    const skeleton = document.getElementById('skeleton-' + sectionId);
+    if (skeleton) skeleton.remove();
+    const cv = document.getElementById('canvas-' + sectionId);
+    if (cv) cv.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-sm text-gray-400">Unable to load chart data</div>';
   }
 }
 {% endif %}

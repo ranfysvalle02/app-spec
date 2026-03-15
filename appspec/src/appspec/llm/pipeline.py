@@ -242,8 +242,10 @@ def _fallback_value(field: Any, entity_name: str, index: int) -> Any:
     if field_type == "boolean":
         return n % 2 == 1
     if field_type == "datetime":
+        month = ((n - 1) % 12) + 1
         day = ((n - 1) % 28) + 1
-        return f"2025-01-{day:02d}T10:00:00Z"
+        hour = (n * 3) % 24
+        return f"2025-{month:02d}-{day:02d}T{hour:02d}:00:00Z"
     if field_type == "enum":
         if field.enum_values:
             return field.enum_values[(n - 1) % len(field.enum_values)]
@@ -260,7 +262,7 @@ def _fallback_value(field: Any, entity_name: str, index: int) -> Any:
     return f"sample_{field.name}_{n}"
 
 
-def _fallback_seed_data(spec: "AppSpec", docs_per_collection: int = 5) -> dict[str, list[dict[str, Any]]]:
+def _fallback_seed_data(spec: "AppSpec", docs_per_collection: int = 10) -> dict[str, list[dict[str, Any]]]:
     """Build deterministic fallback seed data for all collections."""
     fallback: dict[str, list[dict[str, Any]]] = {}
     for entity in spec.entities:
@@ -282,7 +284,7 @@ def _fallback_seed_data(spec: "AppSpec", docs_per_collection: int = 5) -> dict[s
 
 
 def _normalize_seed_data(
-    data: dict[str, list[dict[str, Any]]], spec: "AppSpec", docs_per_collection: int = 5
+    data: dict[str, list[dict[str, Any]]], spec: "AppSpec", docs_per_collection: int = 10
 ) -> dict[str, list[dict[str, Any]]]:
     """Ensure every collection gets usable docs, filling gaps deterministically."""
     normalized: dict[str, list[dict[str, Any]]] = {}
@@ -321,6 +323,12 @@ def _normalize_seed_data(
             # If doc is empty but we have non-reference fields, use fallback doc for a useful record.
             if not doc and non_ref_fields:
                 doc = dict(fallback_doc)
+
+            # Clamp enum values to the allowed list so charts group correctly.
+            for field in non_ref_fields:
+                if field.type.value == "enum" and field.enum_values and field.name in doc:
+                    if doc[field.name] not in field.enum_values:
+                        doc[field.name] = field.enum_values[idx % len(field.enum_values)]
 
             docs.append(doc)
 
