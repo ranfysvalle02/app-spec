@@ -3,7 +3,7 @@
 {% if current_section.title %}
   <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
     <h3 class="text-sm font-semibold text-gray-700">{{ current_section.title }}</h3>
-    <button onclick="listRefresh('{{ current_section.id }}')" class="text-xs text-indigo-600 hover:text-indigo-800">Refresh</button>
+    <button data-action="listRefresh" data-section="{{ current_section.id }}" class="text-xs text-indigo-600 hover:text-indigo-800">Refresh</button>
   </div>
 {% endif %}
   <ul id="list-items-{{ current_section.id }}" class="divide-y divide-gray-100">

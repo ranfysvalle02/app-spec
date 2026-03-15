@@ -399,7 +399,7 @@ async function renderTableSection(sectionId, entity, data) {
     ${visibleFields.map(f => `
       <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider
                  ${f.sortable ? 'cursor-pointer hover:text-gray-700 select-none' : ''}"
-          ${f.sortable ? `onclick="tableToggleSort('${sectionId}','${f.name}')"` : ''}>
+          ${f.sortable ? `data-action="tableToggleSort" data-section="${sectionId}" data-field="${f.name}"` : ''}>
         ${f.label}
         ${f.sortable ? `<span class="ml-1 text-indigo-400">${st.sortField === f.name ? (st.sortDir === 1 ? '↑' : '↓') : '⇅'}</span>` : ''}
       </th>`).join('')}
@@ -429,8 +429,8 @@ async function renderTableSection(sectionId, entity, data) {
     return `<tr class="hover:bg-gray-50 transition-colors">
       ${visibleFields.map(f => `<td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">${formatCell(doc[f.name], f)}</td>`).join('')}
       <td class="px-4 py-3 text-sm text-right whitespace-nowrap">
-        <button onclick="tableOpenEdit('${sectionId}','${id}')" class="text-indigo-600 hover:text-indigo-800 mr-2">Edit</button>
-        <button onclick="tableOpenDelete('${sectionId}','${id}')" class="text-red-500 hover:text-red-700">Del</button>
+        <button data-action="tableOpenEdit" data-section="${sectionId}" data-id="${id}" class="text-indigo-600 hover:text-indigo-800 mr-2">Edit</button>
+        <button data-action="tableOpenDelete" data-section="${sectionId}" data-id="${id}" class="text-red-500 hover:text-red-700">Del</button>
       </td>
     </tr>`;
   }).join('');
@@ -464,7 +464,7 @@ function renderTableFilters(sectionId, entity) {
   bar.innerHTML = filterFields.map(f => `
     <div class="flex items-center gap-2">
       <label class="text-xs font-medium text-gray-500 uppercase">${f.label}</label>
-      <select onchange="tableSetFilter('${sectionId}','${f.name}', this.value)"
+      <select data-action="tableSetFilter" data-section="${sectionId}" data-field="${f.name}"
               class="text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 py-1 px-2">
         <option value="">All</option>
         ${f.enumValues.map(v => `<option value="${v}" ${st.filters[f.name] === v ? 'selected' : ''}>${v}</option>`).join('')}
@@ -953,7 +953,7 @@ function wrapInit(sectionId, fn) {
         el.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
           <p class="text-sm font-medium text-red-800">Failed to load section</p>
           <p class="text-xs text-red-600 mt-1">${err.message}</p>
-          <button onclick="SECTION_INIT['${sectionId}']()" class="mt-2 text-xs text-red-700 underline">Retry</button>
+          <button data-action="retrySection" data-section="${sectionId}" class="mt-2 text-xs text-red-700 underline">Retry</button>
         </div>`;
       }
     }
@@ -999,6 +999,60 @@ function wrapInit(sectionId, fn) {
 })();
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CSP-Safe Event Delegation (no inline handlers)
+// ═══════════════════════════════════════════════════════════════════════════
+const ACTION_MAP = {
+  switchPage:      (el) => switchPage(el.dataset.page),
+  logout:          ()   => logout(),
+  closeModal:      ()   => closeModal(),
+  closeDeleteModal:()   => closeDeleteModal(),
+  confirmDelete:   ()   => confirmDelete(),
+  tableRefresh:    (el) => tableRefresh(el.dataset.section),
+  tableOpenCreate: (el) => tableOpenCreate(el.dataset.section),
+  tablePrev:       (el) => tablePrev(el.dataset.section),
+  tableNext:       (el) => tableNext(el.dataset.section),
+  tableOpenEdit:   (el) => tableOpenEdit(el.dataset.section, el.dataset.id),
+  tableOpenDelete: (el) => tableOpenDelete(el.dataset.section, el.dataset.id),
+  tableToggleSort: (el) => tableToggleSort(el.dataset.section, el.dataset.field),
+  cardGridRefresh: (el) => cardGridRefresh(el.dataset.section),
+  listRefresh:     (el) => listRefresh(el.dataset.section),
+  retrySection:    (el) => { const id = el.dataset.section; if (SECTION_INIT[id]) SECTION_INIT[id](); },
+{% if spec.auth.enabled %}
+  showAuthTab:     (el) => showAuthTab(el.dataset.mode),
+{% endif %}
+};
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const fn = ACTION_MAP[el.dataset.action];
+  if (fn) { e.preventDefault(); fn(el); }
+});
+
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  if (el.dataset.action === 'tableSetFilter') {
+    tableSetFilter(el.dataset.section, el.dataset.field, el.value);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CSP-Safe Form Submission (no inline onsubmit)
+// ═══════════════════════════════════════════════════════════════════════════
+function bindForms() {
+  const modalForm = document.getElementById('modal-form');
+  if (modalForm) modalForm.addEventListener('submit', (e) => handleSubmit(e));
+{% if spec.auth.enabled %}
+  const authForm = document.getElementById('auth-form');
+  if (authForm) authForm.addEventListener('submit', (e) => handleAuth(e));
+{% endif %}
+  document.querySelectorAll('form[data-action="sectionFormSubmit"]').forEach(form => {
+    form.addEventListener('submit', (e) => sectionFormSubmit(e, form.dataset.section));
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Toast
 // ═══════════════════════════════════════════════════════════════════════════
 function showToast(message, type) {
@@ -1013,6 +1067,7 @@ function showToast(message, type) {
 // Init
 // ═══════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  bindForms();
   const hashPage = window.location.hash.slice(1);
   if (hashPage && PAGES.find(p => p.id === hashPage)) {
     activePage = PAGES.find(p => p.id === hashPage);
