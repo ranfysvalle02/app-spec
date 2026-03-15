@@ -42,9 +42,9 @@ appspec = "appspec.cli.main:main"
 [project.entry-points."appspec.targets"]
 
 [project.urls]
-Homepage = "https://github.com/mongodb/appspec"
-Documentation = "https://github.com/mongodb/appspec#readme"
-Repository = "https://github.com/mongodb/appspec"
+Homepage = "https://github.com/ranfysvalle02/app-spec"
+Documentation = "https://github.com/ranfysvalle02/app-spec#readme"
+Repository = "https://github.com/ranfysvalle02/app-spec"
 
 [tool.hatch.build]
 include = ["src/appspec/**"]

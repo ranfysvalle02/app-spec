@@ -1268,12 +1268,30 @@ tailwind.config = {
   /* Glass card effect */
   .glass { background: rgba(17,17,20,0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); }
 
-  /* Tabs */
-  .tab-btn { color: rgba(161,161,170,0.6); }
-  .tab-btn::after { content: ''; position: absolute; bottom: -1px; left: 16px; right: 16px; height: 2px; border-radius: 1px; background: transparent; transition: background 0.2s, box-shadow 0.2s; }
-  .tab-btn:hover { color: rgba(228,228,231,0.8); background: rgba(255,255,255,0.02); }
-  .tab-btn.active { color: #a5b4fc; }
-  .tab-btn.active::after { background: linear-gradient(90deg, #818cf8, #34d399); box-shadow: 0 0 8px rgba(99,102,241,0.3); }
+  /* Floating help button */
+  .help-fab {
+    position: fixed; bottom: 24px; right: 24px; z-index: 40;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, #818cf8 0%, #34d399 100%);
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.35), 0 0 0 0 rgba(99,102,241,0);
+    transition: transform 0.2s, box-shadow 0.3s;
+  }
+  .help-fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(99,102,241,0.5), 0 0 0 6px rgba(99,102,241,0.08); }
+  .help-fab:active { transform: scale(0.95); }
+  .help-fab svg { width: 22px; height: 22px; color: #111114; }
+  .help-fab.open { border-radius: 14px; }
+
+  .help-panel {
+    position: fixed; bottom: 84px; right: 24px; z-index: 39;
+    width: 380px; max-height: 70vh; overflow-y: auto;
+    background: rgba(17,17,20,0.92); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    transform: translateY(12px) scale(0.95); opacity: 0; pointer-events: none;
+    transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s;
+  }
+  .help-panel.visible { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
 
   /* Subtle noise texture */
   body::before {
@@ -1348,7 +1366,7 @@ tailwind.config = {
           <span id="gen-counter-value" class="text-[11px] font-bold text-accent-bright tabular-nums"></span>
           <span class="text-[10px] text-zinc-500">apps generated</span>
         </div>
-        <a href="https://github.com/mongodb/appspec" target="_blank" class="text-zinc-500 hover:text-zinc-300 transition-colors">
+        <a href="https://github.com/ranfysvalle02/app-spec" target="_blank" class="text-zinc-500 hover:text-zinc-300 transition-colors">
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
         </a>
       </div>
@@ -1596,149 +1614,6 @@ tailwind.config = {
       </div>
     </section>
 
-    <!-- ═══ History + About (Tabbed) ═══ -->
-    <section id="history-section" class="animate-fade-up reveal visible" style="animation-delay: 0.2s">
-      <div class="glass rounded-2xl overflow-hidden flex flex-col">
-        <!-- Tab bar -->
-        <div class="flex border-b border-white/[0.06]">
-          <button id="tab-btn-history" onclick="switchTab('history')" class="tab-btn flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-colors relative">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            History
-            <span id="history-count" class="text-[10px] font-mono"></span>
-          </button>
-          <button id="tab-btn-about" onclick="switchTab('about')" class="tab-btn flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-colors relative">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            About AppSpec
-          </button>
-        </div>
-
-        <!-- History panel -->
-        <div id="tab-panel-history" class="tab-panel">
-          <div id="history-list" class="p-4 space-y-2">
-            <div class="text-center py-6 text-xs text-zinc-600">Loading...</div>
-          </div>
-        </div>
-
-        <!-- About panel -->
-        <div id="tab-panel-about" class="tab-panel hidden">
-          <!-- Thesis -->
-          <div class="px-6 pt-5 pb-2">
-            <p class="text-sm text-zinc-300 leading-relaxed">
-              Vibe-coding tools let AI write code directly &mdash; fast, creative, and <em>dangerously inconsistent</em>.
-              Two prompts for the same app produce different dependency versions, different auth patterns, different bugs.
-              <strong class="grad-text">AppSpec rejects the premise.</strong>
-            </p>
-          </div>
-
-          <!-- Two-phase model -->
-          <div class="px-6 pb-4">
-            <div class="grid grid-cols-2 gap-3 mt-3">
-              <div class="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
-                <div class="text-[10px] font-bold text-accent-bright uppercase tracking-widest mb-1">AI = The What</div>
-                <p class="text-xs text-zinc-400 leading-relaxed">The LLM designs your app as a validated JSON document &mdash; entities, relationships, auth, endpoints. It never writes a line of code. It fills in a form, not writes a novel.</p>
-              </div>
-              <div class="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
-                <div class="text-[10px] font-bold text-mint uppercase tracking-widest mb-1">Templates = The How</div>
-                <p class="text-xs text-zinc-400 leading-relaxed">Deterministic Jinja2 templates enforce your org's dependency versions, security patterns, Docker configs, and coding standards. Same spec &rarr; same code. Every time.</p>
-              </div>
-            </div>
-            <p class="text-xs text-zinc-500 mt-3 leading-relaxed">
-              The spec is the source of truth &mdash; not the generated code.
-              Version-control it, diff it, review it as Markdown, regenerate when standards evolve.
-              The document model didn't need to bend to fit AI. AI simply arrived in a shape the document already understood.
-            </p>
-          </div>
-
-          <!-- FAQ -->
-          <div class="px-6 pb-5 space-y-3">
-            <div class="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">FAQ</div>
-
-            <details class="group">
-              <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
-                <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                Why not just let AI write the code directly?
-              </summary>
-              <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                Because you cannot audit what you cannot reproduce. Ask a model to build the same feature twice &mdash;
-                you get two different implementations. Different libraries, different security patterns, different bugs.
-                In an enterprise, every service needs the same bcrypt version, the same JWT flow, the same Docker base image.
-                Templates guarantee this. The AI picks the <em>what</em>; your engineering team controls the <em>how</em>.
-              </p>
-            </details>
-
-            <details class="group">
-              <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
-                <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                Why JSON? Why documents?
-              </summary>
-              <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                When LLMs graduated to structured outputs, the format the industry converged on was <code>response_format: json</code>.
-                Not SQL. Not rows and foreign keys. Nested, flexible, self-describing documents &mdash;
-                the shape MongoDB has spoken natively since 2007. JSON is the only format at the intersection of
-                LLM output, schema validation, document storage, clean Git diffs, and template rendering.
-                The same spec targets Python + MongoDB, TypeScript + PostgreSQL, or any future stack.
-              </p>
-            </details>
-
-            <details class="group">
-              <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
-                <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                How does this relate to SKILL.md / Agent Skills / MCP?
-              </summary>
-              <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                They're complementary layers. A <strong>SKILL.md</strong> teaches an AI agent <em>how to think</em>
-                (e.g. MongoDB schema design rules, ESR indexing, embed-vs-reference heuristics).
-                <strong>AppSpec</strong> encodes <em>what to build</em> as a validated, deterministic contract.
-                Skills improve the AI's creative output; AppSpec's validation pipeline catches anything
-                the AI misses; templates enforce everything the enterprise requires. Three layers, zero gaps.
-              </p>
-            </details>
-
-            <details class="group">
-              <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
-                <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                What does "enterprise-safe" actually mean?
-              </summary>
-              <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                <strong>Auditable</strong> &mdash; the spec is diffable, version-controlled, and every LLM change is tagged with the model, the prompt, and the validation result.
-                <strong>Consistent</strong> &mdash; templates pin dependency versions and enforce auth/RBAC patterns.
-                <strong>Reproducible</strong> &mdash; same spec &rarr; same code, every time.
-                <strong>Evolvable</strong> &mdash; update templates when security standards change, regenerate all services.
-                The AI never touches your production patterns.
-              </p>
-            </details>
-
-            <details class="group">
-              <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
-                <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                What stacks and databases are supported?
-              </summary>
-              <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                <strong>Python + FastAPI</strong> and <strong>TypeScript + Express</strong>,
-                each with <strong>MongoDB</strong> or <strong>PostgreSQL</strong>. Every generated project
-                includes a Dockerfile, docker-compose.yml, seed data, JWT auth with RBAC, ESR-optimized indexes,
-                $jsonSchema validation, and a Tailwind CSS admin UI. Adding a new stack is pluggable &mdash;
-                write a Jinja2 template set and register it as a target.
-              </p>
-            </details>
-
-            <details class="group">
-              <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
-                <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                Can I edit the spec and regenerate?
-              </summary>
-              <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                That's the whole point. The spec is version-controlled, human-readable JSON.
-                Change a field type, add an entity, toggle auth, switch databases &mdash; then regenerate.
-                You get a new, consistent codebase that reflects exactly what the spec says.
-                The document is the contract. The code is derived.
-              </p>
-            </details>
-          </div>
-        </div>
-      </div>
-    </section>
-
   </main>
 
   <!-- ═══ Footer ═══ -->
@@ -1751,6 +1626,87 @@ tailwind.config = {
       </div>
     </div>
   </footer>
+</div>
+
+<!-- ═══ Floating Help / Info Button + Panel ═══ -->
+<button id="help-fab" class="help-fab" onclick="toggleHelpPanel()" aria-label="Help &amp; Info">
+  <svg id="help-fab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+</button>
+<div id="help-panel" class="help-panel">
+  <div class="px-5 pt-4 pb-2 flex items-center justify-between border-b border-white/[0.06]">
+    <div class="flex items-center gap-2">
+      <div class="w-5 h-5 rounded-md bg-gradient-to-br from-accent/30 to-mint/30 flex items-center justify-center">
+        <svg class="w-3 h-3 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <span class="text-sm font-semibold text-zinc-200">About AppSpec</span>
+    </div>
+    <button onclick="toggleHelpPanel()" class="text-zinc-500 hover:text-zinc-300 transition-colors p-1 -mr-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="px-5 pt-4 pb-2">
+    <p class="text-sm text-zinc-300 leading-relaxed">
+      Vibe-coding tools let AI write code directly &mdash; fast, creative, and <em>dangerously inconsistent</em>.
+      <strong class="grad-text">AppSpec rejects the premise.</strong>
+    </p>
+  </div>
+
+  <div class="px-5 pb-3">
+    <div class="grid grid-cols-2 gap-2.5 mt-2">
+      <div class="rounded-lg bg-white/[0.03] border border-white/[0.05] p-2.5">
+        <div class="text-[9px] font-bold text-accent-bright uppercase tracking-widest mb-1">AI = The What</div>
+        <p class="text-[11px] text-zinc-400 leading-relaxed">The LLM designs your app as a validated JSON document. It fills in a form, not writes a novel.</p>
+      </div>
+      <div class="rounded-lg bg-white/[0.03] border border-white/[0.05] p-2.5">
+        <div class="text-[9px] font-bold text-mint uppercase tracking-widest mb-1">Templates = The How</div>
+        <p class="text-[11px] text-zinc-400 leading-relaxed">Jinja2 templates enforce your dependency versions, security patterns, and coding standards.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-5 pb-4 space-y-2">
+    <div class="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">FAQ</div>
+
+    <details class="group">
+      <summary class="flex items-center gap-2 cursor-pointer text-[11px] font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-0.5">
+        <svg class="w-2.5 h-2.5 text-zinc-600 group-open:rotate-90 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        Why not just let AI write the code directly?
+      </summary>
+      <p class="text-[11px] text-zinc-500 leading-relaxed pl-4.5 pb-1">You can't audit what you can't reproduce. Templates guarantee the same bcrypt version, JWT flow, and Docker base image across every service.</p>
+    </details>
+
+    <details class="group">
+      <summary class="flex items-center gap-2 cursor-pointer text-[11px] font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-0.5">
+        <svg class="w-2.5 h-2.5 text-zinc-600 group-open:rotate-90 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        Why JSON? Why documents?
+      </summary>
+      <p class="text-[11px] text-zinc-500 leading-relaxed pl-4.5 pb-1">JSON is the only format at the intersection of LLM output, schema validation, document storage, clean Git diffs, and template rendering.</p>
+    </details>
+
+    <details class="group">
+      <summary class="flex items-center gap-2 cursor-pointer text-[11px] font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-0.5">
+        <svg class="w-2.5 h-2.5 text-zinc-600 group-open:rotate-90 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        What stacks are supported?
+      </summary>
+      <p class="text-[11px] text-zinc-500 leading-relaxed pl-4.5 pb-1"><strong>Python + FastAPI</strong> and <strong>TypeScript + Express</strong>, each with <strong>MongoDB</strong> or <strong>PostgreSQL</strong>. Every project includes Docker, JWT auth, RBAC, seed data, and a Tailwind UI.</p>
+    </details>
+
+    <details class="group">
+      <summary class="flex items-center gap-2 cursor-pointer text-[11px] font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-0.5">
+        <svg class="w-2.5 h-2.5 text-zinc-600 group-open:rotate-90 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        Can I edit the spec and regenerate?
+      </summary>
+      <p class="text-[11px] text-zinc-500 leading-relaxed pl-4.5 pb-1">That's the whole point. The spec is the contract; the code is derived. Change it, regenerate, and get a consistent codebase every time.</p>
+    </details>
+  </div>
+
+  <div class="px-5 pb-4 pt-2 border-t border-white/[0.06]">
+    <a href="https://github.com/ranfysvalle02/app-spec" target="_blank" class="flex items-center gap-2 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      View on GitHub
+    </a>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -2373,7 +2329,6 @@ function startGeneration() {
       setGenerationMood(false);
       if (!generationFailed) {
         setStage('codegen', 'done');
-        loadHistory();
         setTimeout(() => {
           const actions = document.getElementById('actions-section');
           if (actions) actions.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2421,114 +2376,29 @@ function startGeneration() {
   });
 }
 
-/* ── Tabs ──────────────────────────────────────────────────────────── */
+/* ── Help Panel ────────────────────────────────────────────────────── */
 
-function switchTab(id) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-  const btn = document.getElementById('tab-btn-' + id);
-  const panel = document.getElementById('tab-panel-' + id);
-  if (btn) btn.classList.add('active');
-  if (panel) panel.classList.remove('hidden');
-  if (id === 'history') loadHistory();
-}
-switchTab('history');
-
-/* ── History ───────────────────────────────────────────────────────── */
-
-let _historyLoaded = false;
-
-async function loadHistory() {
-  try {
-    const res = await fetch('/api/generations');
-    const items = await res.json();
-    const list = document.getElementById('history-list');
-    const countEl = document.getElementById('history-count');
-
-    if (items.length) {
-      const pyCount = items.filter(i => i.stack !== 'typescript-express').length;
-      const tsCount = items.filter(i => i.stack === 'typescript-express').length;
-      const mdbCount = items.filter(i => i.engine !== 'postgresql').length;
-      const pgCount = items.filter(i => i.engine === 'postgresql').length;
-      if (countEl) countEl.innerHTML = `<span class="inline-flex items-center gap-2">`
-        + `<span class="px-1.5 py-0.5 rounded bg-accent/15 text-accent-bright font-bold">${items.length}</span>`
-        + (pyCount ? `<span class="px-1.5 py-0.5 rounded bg-indigo-400/10 text-indigo-300">Py ${pyCount}</span>` : '')
-        + (tsCount ? `<span class="px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-300">TS ${tsCount}</span>` : '')
-        + (mdbCount ? `<span class="px-1.5 py-0.5 rounded bg-mint/10 text-mint">MDB ${mdbCount}</span>` : '')
-        + (pgCount ? `<span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">PG ${pgCount}</span>` : '')
-        + `</span>`;
-    }
-
-    if (!items.length) {
-      if (countEl) countEl.textContent = '';
-      list.innerHTML = `<div class="text-center py-6 text-xs text-zinc-600">No generations yet. Describe an app above and click Generate.</div>`;
-      return;
-    }
-    list.innerHTML = items.map(item => {
-      const date = item.created_at ? new Date(item.created_at) : null;
-      const timeStr = date ? date.toLocaleDateString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-      const dbBadge = item.engine === 'postgresql'
-        ? '<span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[9px] font-medium">PostgreSQL</span>'
-        : '<span class="px-1.5 py-0.5 rounded bg-mint/10 text-mint text-[9px] font-medium">MongoDB</span>';
-      const stackBadge = item.stack === 'typescript-express'
-        ? '<span class="px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-300 text-[9px] font-medium">TypeScript</span>'
-        : '<span class="px-1.5 py-0.5 rounded bg-indigo-400/10 text-indigo-300 text-[9px] font-medium">Python</span>';
-      const sid = _esc(item.session_id);
-      return `<div class="rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-colors p-3.5 group">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="text-sm font-semibold text-zinc-200 truncate">${_esc(item.app_name || item.slug)}</span>
-              <span class="text-[10px] text-zinc-600 font-mono">${_esc(item.slug)}</span>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              ${stackBadge} ${dbBadge}
-              <span class="text-[10px] text-zinc-500">${item.entity_count || 0} entities</span>
-              <span class="text-[10px] text-zinc-600">&middot;</span>
-              <span class="text-[10px] text-zinc-500">${item.endpoint_count || 0} endpoints</span>
-              <span class="text-[10px] text-zinc-600">&middot;</span>
-              <span class="text-[10px] text-zinc-500">${item.file_count || 0} files</span>
-            </div>
-            ${item.prompt ? `<div class="text-[10px] text-zinc-600 mt-1.5 truncate italic">"${_esc(item.prompt)}"</div>` : ''}
-          </div>
-          <div class="flex flex-col items-end gap-2 shrink-0">
-            <span class="text-[10px] text-zinc-600 tabular-nums whitespace-nowrap">${timeStr}</span>
-            <div class="flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              <button onclick="openPreviewFromHistory('${sid}')" class="text-[10px] text-indigo-300 hover:text-indigo-200 font-medium px-2 py-1 rounded-md bg-indigo-500/10 hover:bg-indigo-500/15 transition-colors">Preview</button>
-              <button onclick="viewHistorySpec('${sid}')" class="text-[10px] text-accent-bright hover:text-accent font-medium px-2 py-1 rounded-md bg-accent/10 hover:bg-accent/15 transition-colors">Spec</button>
-              <a href="/download/${sid}" class="text-[10px] text-mint hover:text-mint-dim font-medium px-2 py-1 rounded-md bg-mint/10 hover:bg-mint/15 transition-colors">Download</a>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-    _historyLoaded = true;
-  } catch (e) {
-    const list = document.getElementById('history-list');
-    if (list) list.innerHTML = `<div class="text-center py-6 text-xs text-zinc-600">Could not load history (is MongoDB running?)</div>`;
+function toggleHelpPanel() {
+  const panel = document.getElementById('help-panel');
+  const fab = document.getElementById('help-fab');
+  const icon = document.getElementById('help-fab-icon');
+  const isOpen = panel.classList.contains('visible');
+  panel.classList.toggle('visible');
+  if (!isOpen) {
+    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>';
+    fab.classList.add('open');
+  } else {
+    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+    fab.classList.remove('open');
   }
 }
 
-async function viewHistorySpec(sessionId) {
-  try {
-    const res = await fetch(`/api/generations/${sessionId}`);
-    const data = await res.json();
-    if (data.spec) {
-      _specData = data.spec;
-      const pretty = JSON.stringify(_specData, null, 2);
-      const escaped = pretty.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const lineCount = pretty.split('\n').length;
-      document.getElementById('spec-json').innerHTML = `<pre class="!bg-surface"><code class="language-json">${escaped}</code></pre>`;
-      Prism.highlightAllUnder(document.getElementById('spec-json'));
-      const linesEl = document.getElementById('spec-json-lines');
-      if (linesEl) linesEl.textContent = `${lineCount} lines`;
-      document.getElementById('spec-modal-subtitle').textContent =
-        `${_specData.app_name || 'App'} — ${(_specData.entities || []).length} entities, ${(_specData.endpoints || []).length} endpoints`;
-      renderSpecSidebar(_specData);
-      openSpecModal();
-    }
-  } catch (e) { /* ignore */ }
-}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const panel = document.getElementById('help-panel');
+    if (panel && panel.classList.contains('visible')) toggleHelpPanel();
+  }
+});
 
 /* ── Preview (opens in new tab) ────────────────────────────── */
 
@@ -2537,9 +2407,6 @@ function openPreview() {
   window.open('/preview/' + currentSessionId, '_blank');
 }
 
-function openPreviewFromHistory(sessionId) {
-  window.open('/preview/' + sessionId, '_blank');
-}
 </script>
 </body>
 </html>"""

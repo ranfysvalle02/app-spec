@@ -260,4 +260,4 @@ docker compose up --build
 
 One sentence in. Full-stack app out. Validated, deterministic, auditable.
 
-[GitHub](https://github.com/mongodb/appspec) | [PROPOSAL.md](appspec/PROPOSAL.md) | MIT License
+[GitHub](https://github.com/ranfysvalle02/app-spec) | [PROPOSAL.md](appspec/PROPOSAL.md) | MIT License
