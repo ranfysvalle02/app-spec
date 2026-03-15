@@ -52,7 +52,7 @@ const {{ entity.name }}Schema = new Schema<I{{ entity.name }}>(
 {% elif field.type.value == "reference" %}
     {{ field.name }}: { type: Schema.Types.ObjectId, ref: "{{ field.reference }}"{% if field.required %}, required: true{% endif %} },
 {% elif field.type.value == "array" %}
-    {{ field.name }}: { type: [Schema.Types.Mixed]{% if field.required %}, required: true{% endif %} },
+    {{ field.name }}: { type: [Schema.Types.Mixed]{% if field.required %}, required: true{% endif %} } as any,
 {% elif field.type.value == "object" %}
     {{ field.name }}: { type: Schema.Types.Mixed{% if field.required %}, required: true{% endif %} },
 {% elif field.type.value == "geo_point" %}

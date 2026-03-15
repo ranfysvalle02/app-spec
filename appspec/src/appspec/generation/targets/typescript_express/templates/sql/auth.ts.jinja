@@ -10,9 +10,12 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { query } from "./database";
 
-const SECRET = process.env.JWT_SECRET_KEY;
-if (!SECRET) throw new Error("JWT_SECRET_KEY environment variable is required");
-const TOKEN_EXPIRY = parseInt(process.env.ACCESS_TOKEN_EXPIRE_MINUTES || "60");
+const SECRET = (() => {
+  const s = process.env.JWT_SECRET_KEY;
+  if (!s) throw new Error("JWT_SECRET_KEY environment variable is required");
+  return s;
+})();
+const TOKEN_EXPIRY = parseInt(process.env.ACCESS_TOKEN_EXPIRE_MINUTES || "60", 10);
 
 export interface AuthRequest extends Request {
   user?: { username: string; role?: string };
@@ -73,7 +76,7 @@ authRouter.post("/login", async (req: Request, res: Response) => {
     const token = jwt.sign(
       { sub: user.username{% if spec.auth.roles %}, role: user.role{% endif %} },
       SECRET,
-      { expiresIn: `${TOKEN_EXPIRY}m` }
+      { expiresIn: TOKEN_EXPIRY * 60 }
     );
 
     res.json({ access_token: token, token_type: "bearer" });

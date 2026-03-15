@@ -10,9 +10,12 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import mongoose, { Schema, Document } from "mongoose";
 
-const SECRET = process.env.JWT_SECRET_KEY;
-if (!SECRET) throw new Error("JWT_SECRET_KEY environment variable is required");
-const TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRE_MINUTES || "60";
+const SECRET = (() => {
+  const s = process.env.JWT_SECRET_KEY;
+  if (!s) throw new Error("JWT_SECRET_KEY environment variable is required");
+  return s;
+})();
+const TOKEN_EXPIRY = parseInt(process.env.ACCESS_TOKEN_EXPIRE_MINUTES || "60", 10);
 
 export interface IUser extends Document {
   username: string;
@@ -113,7 +116,7 @@ authRouter.post("/login", async (req: Request, res: Response) => {
 {% if spec.auth.roles %}
     payload.role = user.role;
 {% endif %}
-    const token = jwt.sign(payload, SECRET, { expiresIn: `${TOKEN_EXPIRY}m` });
+    const token = jwt.sign(payload, SECRET, { expiresIn: TOKEN_EXPIRY * 60 });
     res.json({ access_token: token, token_type: "bearer" });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
