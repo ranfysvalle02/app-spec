@@ -7,7 +7,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import { connectDb, closeDb, query } from "./database";
+import { connectDb, closeDb, createTables, query } from "./database";
 import { router } from "./routes";
 {% if spec.auth.enabled %}
 import { authRouter } from "./auth";
@@ -51,6 +51,7 @@ app.get("/ux", (_req, res) => {
 
 async function start() {
   await connectDb();
+  await createTables();
   app.listen(PORT, () => console.log(`{{ spec.app_name }} running on port ${PORT}`));
 }
 

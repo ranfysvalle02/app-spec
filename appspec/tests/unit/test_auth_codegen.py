@@ -67,13 +67,13 @@ class TestPythonFastAPIAuth:
         files = generate(_make_spec(auth_enabled=True), "python-fastapi")
         assert "auth.py" in files
         assert "get_current_user" in files["auth.py"]
-        assert "python-jose" in files["requirements.txt"]
+        assert "PyJWT" in files["requirements.txt"]
         assert "passlib" in files["requirements.txt"]
 
     def test_auth_disabled_no_auth_file(self):
         files = generate(_make_spec(auth_enabled=False), "python-fastapi")
         assert "auth.py" not in files
-        assert "python-jose" not in files["requirements.txt"]
+        assert "PyJWT" not in files["requirements.txt"]
 
     def test_auth_enabled_main_imports_auth(self):
         files = generate(_make_spec(auth_enabled=True), "python-fastapi")

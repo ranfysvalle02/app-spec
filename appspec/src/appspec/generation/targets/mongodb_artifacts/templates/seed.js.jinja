@@ -35,6 +35,7 @@ null
 {% if spec.sample_data %}
 {% for entity in spec.entities %}
 {% set docs = spec.sample_data.get(entity.collection, []) %}
+{% set ref_field_names = entity.fields | selectattr("type.value", "equalto", "reference") | map(attribute="name") | list %}
 {% if docs %}
 // ── {{ entity.name }} ({{ entity.collection }}) — {{ docs | length }} documents ──
 try {
@@ -42,7 +43,12 @@ try {
 {% for doc in docs %}
     {
 {% for key, val in doc.items() %}
+{% if key in ("_id", "id") %}
+{% elif key in ref_field_names and val is string %}
       {{ key }}: {{ js_value(val) }},
+{% else %}
+      {{ key }}: {{ js_value(val) }},
+{% endif %}
 {% endfor %}
       updated_at: new Date()
     }{% if not loop.last %},{% endif %}

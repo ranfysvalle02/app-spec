@@ -37,6 +37,54 @@ export async function connectDb(): Promise<void> {
   }
 }
 
+export async function createTables(): Promise<void> {
+  const ddl = `
+{% for entity in spec.entities %}
+CREATE TABLE IF NOT EXISTS {{ entity.collection }} (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+{% set managed_fields = ["id", "created_at", "updated_at"] %}
+{% for field in entity.fields if field.name not in managed_fields %}
+{% if field.type.value == "reference" %}
+    {{ field.name }} UUID{{ " NOT NULL" if field.required else "" }} REFERENCES {{ field.reference }}(id),
+{% else %}
+    {{ db.create_table_column(field) }},
+{% endif %}
+{% endfor %}
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+{% endfor %}
+
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+{% for entity in spec.entities %}
+DROP TRIGGER IF EXISTS trg_{{ entity.collection }}_updated_at ON {{ entity.collection }};
+CREATE TRIGGER trg_{{ entity.collection }}_updated_at
+    BEFORE UPDATE ON {{ entity.collection }}
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+{% endfor %}
+{% if spec.auth.enabled %}
+CREATE TABLE IF NOT EXISTS _appspec_auth (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+{% if spec.auth.roles %}
+    role VARCHAR(50) NOT NULL DEFAULT '{{ spec.auth.default_role or spec.auth.roles[0] }}',
+{% endif %}
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+{% endif %}
+  `;
+  await query(ddl);
+  console.log("Tables ensured");
+}
+
 export async function closeDb(): Promise<void> {
   if (pool) {
     await pool.end();

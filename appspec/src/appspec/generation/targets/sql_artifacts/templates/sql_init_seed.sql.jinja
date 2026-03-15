@@ -15,6 +15,7 @@
 {%- endfor %}
 -- {{ entity.name }}: {{ docs | length }} records
 {% for doc in docs %}
+{%- set doc_idx = loop.index0 %}
 INSERT INTO {{ collection }} (
 {% for field in seed_fields %}
     {{ field.name }}{{ "," if not loop.last else "" }}
@@ -25,8 +26,8 @@ INSERT INTO {{ collection }} (
     {{ db.sql_value_literal(doc[field.name], field) }}{{ "," if not loop.last else "" }}
 {%-   elif field.type == "reference" and field.reference and field.reference in spec.sample_data %}
 {%-     set ref_docs = spec.sample_data[field.reference] %}
-{%-     set ref_doc = ref_docs[loop.index0 % (ref_docs | length)] %}
-    {{ db.sql_value_literal(ref_doc.get("_id", ref_doc.get("id", "ref_" ~ loop.index0)), field) }}{{ "," if not loop.last else "" }}
+{%-     set ref_doc = ref_docs[doc_idx % (ref_docs | length)] %}
+    {{ db.sql_value_literal(ref_doc.get("id", ref_doc.get("_id")), field) }}{{ "," if not loop.last else "" }}
 {%-   else %}
     NULL{{ "," if not loop.last else "" }}
 {%-   endif %}

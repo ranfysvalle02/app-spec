@@ -312,6 +312,18 @@ function initActivePage() {
   }
 }
 
+function refreshDependentSections(collection) {
+  for (const page of PAGES) {
+    for (const sec of (page.sections || [])) {
+      const ds = sec.data_source || '';
+      const metricSources = ((sec.config || {}).metrics || []).map(m => m.data_source).filter(Boolean);
+      if (ds === collection || metricSources.includes(collection)) {
+        if (SECTION_INIT[sec.id]) SECTION_INIT[sec.id]();
+      }
+    }
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Table Section Logic
 // ═══════════════════════════════════════════════════════════════════════════
@@ -557,6 +569,7 @@ async function handleSubmit(e) {
     closeModal();
     invalidateCache(st.collection);
     loadTableData(activeTableSection);
+    refreshDependentSections(st.collection);
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -573,6 +586,7 @@ async function confirmDelete() {
     closeDeleteModal();
     invalidateCache(st.collection);
     loadTableData(activeTableSection);
+    refreshDependentSections(st.collection);
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -689,6 +703,8 @@ async function sectionFormSubmit(e, sectionId) {
     await api('POST', `/${sec.data_source}`, formData);
     showToast(`${entity.name} created`);
     e.target.reset();
+    invalidateCache(sec.data_source);
+    refreshDependentSections(sec.data_source);
   } catch (err) {
     showToast(err.message, 'error');
   }

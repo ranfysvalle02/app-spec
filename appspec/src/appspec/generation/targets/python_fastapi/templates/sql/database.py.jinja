@@ -23,6 +23,12 @@ async def connect_db():
         await conn.execute(text("SELECT 1"))
 
 
+async def create_tables(metadata):
+    """Ensure all tables exist (idempotent CREATE TABLE IF NOT EXISTS)."""
+    async with engine.begin() as conn:
+        await conn.run_sync(metadata.create_all)
+
+
 async def close_db():
     """Dispose of the engine's connection pool (called on shutdown)."""
     await engine.dispose()

@@ -11,7 +11,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
-from database import connect_db, close_db, async_session
+from database import connect_db, close_db, create_tables, async_session
+from models import Base
 from routes import router
 {% if spec.auth.enabled %}
 from auth import auth_router
@@ -21,6 +22,7 @@ from auth import auth_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_db()
+    await create_tables(Base.metadata)
     yield
     await close_db()
 

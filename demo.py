@@ -293,7 +293,7 @@ _CSP_TEMPLATE = (
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
     "font-src 'self' https://fonts.gstatic.com; "
     "img-src 'self' data: https://cdn.jsdelivr.net; "
-    "connect-src 'self'"
+    "connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.tailwindcss.com"
 )
 
 _CSP_API = (
@@ -328,6 +328,21 @@ def _backfill_sample_refs(spec) -> dict:
     sd = spec.to_dict().get("sample_data", {})
     if not sd:
         return sd
+
+    is_sql = hasattr(spec, "database") and spec.database.engine.value == "postgresql"
+
+    # Phase 1: ensure every seed doc has an _id / id so references can point at them.
+    import hashlib
+    for coll, docs in sd.items():
+        coll_hex = hashlib.md5(coll.encode()).hexdigest()
+        for i, doc in enumerate(docs):
+            if not doc.get("_id") and not doc.get("id"):
+                if is_sql:
+                    doc["id"] = f"00000000-0000-4000-{coll_hex[:4]}-{coll_hex[4:12]}{i:04x}"
+                else:
+                    doc["_id"] = f"{coll_hex[:20]}{i:04x}"
+
+    # Phase 2: backfill reference fields with real IDs from target collection.
     entities = {e.collection: e for e in spec.entities}
     for coll, docs in sd.items():
         entity = entities.get(coll)
@@ -338,12 +353,14 @@ def _backfill_sample_refs(spec) -> dict:
             target_docs = sd.get(rf.reference, [])
             if not target_docs:
                 continue
+            valid_ids = {d.get("_id") or d.get("id") for d in target_docs} - {None}
             pick = 0
             for doc in docs:
-                if doc.get(rf.name) not in (None, "", 0):
+                cur = doc.get(rf.name)
+                if cur and cur in valid_ids:
                     continue
                 target = target_docs[pick % len(target_docs)]
-                doc[rf.name] = target.get("_id") or target.get("id") or f"ref_{pick}"
+                doc[rf.name] = target.get("_id") or target.get("id")
                 pick += 1
     return sd
 
@@ -853,7 +870,7 @@ def _build_mongodb_panel(spec) -> str:
 """.replace("__MDB_INSIGHTS__", insights_json)
 
 
-def _build_preview_page(html: str, session_id: str, spec) -> str:
+def _build_preview_page(html: str, session_id: str, spec, stack: str = "") -> str:
     """Inject a fetch shim + preview banner into the generated index.html."""
     if not html:
         return (
@@ -899,7 +916,9 @@ def _build_preview_page(html: str, session_id: str, spec) -> str:
     return null;
   }
 
-  // Backfill missing reference IDs so edit/delete and relation UX behaves like real apps.
+  // Backfill and fix reference IDs so edit/delete and relation UX works in preview.
+  // Seed data may contain stale placeholder refs (e.g. "ref_0") that don't match
+  // the preview IDs we just assigned above. Fix them by round-robin assignment.
   for (const [coll, rows] of Object.entries(db)) {
     const ent = entityByCollection.get(coll) || entityByName.get(String(coll).toLowerCase());
     if (!ent || !Array.isArray(ent.fields)) continue;
@@ -910,9 +929,11 @@ def _build_preview_page(html: str, session_id: str, spec) -> str:
       const targetColl = resolveRefCollection(rf.reference);
       const targetRows = targetColl ? (db[targetColl] || []) : [];
       if (!targetRows.length) continue;
+      const validIds = new Set(targetRows.map(t => t._id || t.id));
       let pick = 0;
       for (const row of rows) {
-        if (row[rf.name] !== undefined && row[rf.name] !== null && row[rf.name] !== '') continue;
+        const cur = row[rf.name];
+        if (cur && validIds.has(cur)) continue;
         const target = targetRows[pick % targetRows.length];
         row[rf.name] = target._id || target.id;
         pick += 1;
@@ -1097,6 +1118,33 @@ def _build_preview_page(html: str, session_id: str, spec) -> str:
     }
     </script>""" if is_mongo else ""
 
+    # Stack badge — show chosen language + database clearly
+    eng_value = ""
+    if hasattr(spec, "database") and hasattr(spec.database, "engine"):
+        eng_value = spec.database.engine.value if hasattr(spec.database.engine, "value") else str(spec.database.engine)
+
+    _STACK_LABELS = {
+        "python-fastapi":      ("Python + FastAPI", "#3B82F6", "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg"),
+        "typescript-express":  ("TypeScript + Express", "#3178C6", "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg"),
+    }
+    _DB_LABELS = {
+        "mongodb":    ("MongoDB", "#00ED64", "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mongodb/mongodb-original.svg"),
+        "postgresql": ("PostgreSQL", "#336791", "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postgresql/postgresql-original.svg"),
+    }
+    s_label, s_color, s_icon = _STACK_LABELS.get(stack, (stack or "Unknown", "#888", ""))
+    d_label, d_color, d_icon = _DB_LABELS.get(eng_value, (eng_value or "Unknown", "#888", ""))
+
+    stack_badge = f"""
+        <div style="display:flex;align-items:center;gap:6px;margin-left:8px;padding:3px 4px;background:rgba(0,0,0,0.25);border-radius:8px;">
+          <span style="display:inline-flex;align-items:center;gap:4px;background:{s_color};padding:2px 9px;border-radius:5px;font-size:10px;font-weight:700;color:#fff;">
+            <img src="{s_icon}" width="12" height="12" style="border-radius:2px;" alt="">{s_label}
+          </span>
+          <span style="color:rgba(255,255,255,0.3);font-size:11px;">+</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;background:{d_color};padding:2px 9px;border-radius:5px;font-size:10px;font-weight:700;color:#fff;">
+            <img src="{d_icon}" width="12" height="12" style="border-radius:2px;" alt="">{d_label}
+          </span>
+        </div>"""
+
     banner = f"""<div id="appspec-preview-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;
       background:linear-gradient(135deg,#6366f1,#4f46e5,#7c3aed);padding:9px 20px;
       display:flex;align-items:center;justify-content:space-between;font-family:system-ui,sans-serif;
@@ -1105,6 +1153,7 @@ def _build_preview_page(html: str, session_id: str, spec) -> str:
         <span style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:4px;
           font-size:10px;font-weight:700;color:#fff;letter-spacing:0.12em;">PREVIEW</span>
         <span style="color:rgba(255,255,255,0.95);font-size:13px;font-weight:600;">{app_name}</span>
+        {stack_badge}
         {tabs_html}
         <span style="color:rgba(255,255,255,0.4);font-size:10px;margin-left:4px;">
           <code style="background:rgba(255,255,255,0.12);padding:1px 5px;border-radius:3px;font-size:9px;color:rgba(255,255,255,0.8);">demo@demo.com</code>
@@ -1500,7 +1549,10 @@ tailwind.config = {
           </div>
           <div>
             <div class="text-sm font-bold text-zinc-100">Your app is ready</div>
-            <div id="file-count-label" class="text-[11px] text-zinc-500">0 files generated</div>
+            <div class="flex items-center gap-2">
+              <span id="file-count-label" class="text-[11px] text-zinc-500">0 files generated</span>
+              <span id="llm-cost-badge" class="hidden text-[10px] px-1.5 py-0.5 rounded-md bg-mint/10 border border-mint/20 text-zinc-400 tabular-nums"></span>
+            </div>
           </div>
         </div>
 
@@ -2309,6 +2361,17 @@ function startGeneration() {
         `${_specData.app_name || 'App'} — ${(_specData.entities || []).length} entities, ${(_specData.endpoints || []).length} endpoints`;
       renderSpecSidebar(_specData);
     }
+    if (d.cost) {
+      const costEl = document.getElementById('llm-cost-badge');
+      if (costEl) {
+        const c = d.cost.total_cost;
+        const t = d.cost.total_tokens;
+        const costStr = c > 0 ? `$${c.toFixed(4)}` : 'free tier';
+        const tokStr = t > 0 ? `${t.toLocaleString()} tokens` : '';
+        costEl.innerHTML = `<span class="text-mint font-semibold">${costStr}</span>${tokStr ? ` <span class="text-zinc-600">&middot;</span> ${tokStr}` : ''}`;
+        costEl.classList.remove('hidden');
+      }
+    }
     if (d.done) {
       btn.disabled = false;
       setGenerationMood(false);
@@ -2590,26 +2653,28 @@ async def generate_stream(request: Request, body: _GenerateRequest):
             yield send({"step": "schema", "status": "running"})
 
             try:
-                from appspec.llm import create_spec, create_sample_data
+                from appspec.llm import create_spec, create_sample_data, reset_usage, get_accumulated_usage
             except ImportError:
                 yield send({"step": "schema", "status": "error",
                              "detail": "LLM support not installed. Run: pip install appspec[llm]"})
                 yield send({"done": True})
                 return
 
-            prompt, sanitize_err = _sanitize_prompt(prompt)
+            clean_prompt, sanitize_err = _sanitize_prompt(prompt)
             if sanitize_err:
                 yield send({"step": "schema", "status": "error", "detail": sanitize_err})
                 yield send({"done": True})
                 return
 
+            reset_usage()
             try:
                 _check_timeout()
-                spec = await create_spec(prompt, model=os.environ.get("APPSPEC_MODEL", ""))
+                spec = await create_spec(clean_prompt, model=os.environ.get("APPSPEC_MODEL", ""))
             except Exception as exc:
                 yield send({"step": "schema", "status": "error", "detail": str(exc)[:200]})
                 yield send({"done": True})
                 return
+            schema_usage = get_accumulated_usage()
 
             if spec.database.engine.value != engine_name:
                 from appspec.models import AppSpec as _AS
@@ -2618,6 +2683,9 @@ async def generate_stream(request: Request, body: _GenerateRequest):
                 spec = _AS.from_dict(data)
 
             entity_tags = [f"{e.name} ({len(e.fields)} fields)" for e in spec.entities]
+            schema_cost_tag = f"${schema_usage['cost']:.4f}" if schema_usage["cost"] else None
+            if schema_cost_tag:
+                entity_tags.append(f"LLM cost: {schema_cost_tag}")
             yield send({
                 "step": "schema", "status": "done",
                 "detail": f"{spec.app_name} — {len(spec.entities)} entities, {len(spec.endpoints)} endpoints, auth={'on' if spec.auth.enabled else 'off'}",
@@ -2663,8 +2731,11 @@ async def generate_stream(request: Request, body: _GenerateRequest):
             _check_timeout()
             yield send({"step": "seed", "status": "running"})
 
+            reset_usage()
+            seed_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "cost": 0.0}
             try:
                 seed_data = await create_sample_data(spec, model=os.environ.get("APPSPEC_MODEL", ""))
+                seed_usage = get_accumulated_usage()
                 if seed_data:
                     from appspec.models import AppSpec as _AS2
                     d = spec.to_dict()
@@ -2677,6 +2748,9 @@ async def generate_stream(request: Request, body: _GenerateRequest):
                         spec = _AS2.from_dict(d)
                     total = sum(len(v) for v in seed_data.values())
                     seed_tags = [f"{k}: {len(v)} records" for k, v in seed_data.items()]
+                    seed_cost_tag = f"${seed_usage['cost']:.4f}" if seed_usage["cost"] else None
+                    if seed_cost_tag:
+                        seed_tags.append(f"LLM cost: {seed_cost_tag}")
                     yield send({
                         "step": "seed", "status": "done",
                         "detail": f"{total} records across {len(seed_data)} collections",
@@ -2703,14 +2777,17 @@ async def generate_stream(request: Request, body: _GenerateRequest):
                 yield send({"done": True})
                 return
 
+            total_cost = schema_usage["cost"] + seed_usage["cost"]
+            total_tokens = schema_usage["total_tokens"] + seed_usage["total_tokens"]
+
             file_tags = sorted(files.keys())
             yield send({
                 "step": "codegen", "status": "done",
-                "detail": f"{len(files)} files generated deterministically from templates",
+                "detail": f"{len(files)} files generated deterministically from templates — $0.00 (no LLM)",
                 "extras": file_tags,
             })
 
-            _sessions[session_id] = {"files": files, "spec": spec}
+            _sessions[session_id] = {"files": files, "spec": spec, "stack": stack}
 
             # ── 5. Persist to MongoDB ─────────────────────────────────
             try:
@@ -2727,14 +2804,17 @@ async def generate_stream(request: Request, body: _GenerateRequest):
                     "entity_count": len(spec.entities),
                     "endpoint_count": len(spec.endpoints),
                     "file_count": len(files),
+                    "llm_cost": round(total_cost, 6),
+                    "llm_tokens": total_tokens,
                     "created_at": datetime.now(timezone.utc),
                 })
             except Exception:
                 log.exception("Failed to persist generation %s to MongoDB", session_id)
 
             count = await _increment_generation_count()
+            cost_summary = {"total_cost": round(total_cost, 6), "total_tokens": total_tokens}
             yield send({"files": files, "session_id": session_id, "spec_json": spec.to_json(),
-                         "generation_number": count})
+                         "generation_number": count, "cost": cost_summary})
             yield send({"done": True})
 
           except TimeoutError:
@@ -2816,18 +2896,19 @@ async def preview(request: Request, session_id: str):
             return PlainTextResponse("Preview not found", status_code=404)
         from appspec.models import AppSpec as _AS
         spec = _AS.from_dict(doc["spec"])
+        stored_stack = doc.get("stack", "python-fastapi")
         if "files" in doc:
             files = doc["files"]
         else:
             from appspec.generation.composer import compose_full_project
-            files = compose_full_project(spec, doc.get("stack", "python-fastapi"))
-        session = {"files": files, "spec": spec}
+            files = compose_full_project(spec, stored_stack)
+        session = {"files": files, "spec": spec, "stack": stored_stack}
 
     raw_html = session["files"].get("static/index.html", "")
     if not raw_html:
         return PlainTextResponse("No UI generated for this stack", status_code=404)
 
-    return HTMLResponse(_build_preview_page(raw_html, session_id, session["spec"]))
+    return HTMLResponse(_build_preview_page(raw_html, session_id, session["spec"], session.get("stack", "")))
 
 
 # ── History API ──────────────────────────────────────────────────────────────
