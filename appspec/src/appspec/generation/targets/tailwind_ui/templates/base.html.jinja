@@ -163,7 +163,7 @@ function enterApp() {
     const payload = JSON.parse(atob(authToken.split('.')[1]));
     document.getElementById('user-badge').textContent = payload.sub + (payload.role ? ` (${payload.role})` : '');
   } catch {}
-  requestAnimationFrame(() => initActivePage());
+  initActivePage();
 }
 
 function logout() {

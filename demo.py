@@ -1628,9 +1628,9 @@ tailwind.config = {
           <!-- Thesis -->
           <div class="px-6 pt-5 pb-2">
             <p class="text-sm text-zinc-300 leading-relaxed">
-              <strong class="grad-text">Thesis:</strong> The Document Model is the missing piece that makes AI code generation enterprise-safe.
-              Today's vibe-coding tools let AI write code directly &mdash; fast, creative, and dangerously inconsistent.
-              AppSpec introduces a <em>structured contract</em> between AI and your codebase:
+              Vibe-coding tools let AI write code directly &mdash; fast, creative, and <em>dangerously inconsistent</em>.
+              Two prompts for the same app produce different dependency versions, different auth patterns, different bugs.
+              <strong class="grad-text">AppSpec rejects the premise.</strong>
             </p>
           </div>
 
@@ -1638,17 +1638,18 @@ tailwind.config = {
           <div class="px-6 pb-4">
             <div class="grid grid-cols-2 gap-3 mt-3">
               <div class="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
-                <div class="text-[10px] font-bold text-accent-bright uppercase tracking-widest mb-1">AI = Creativity</div>
-                <p class="text-xs text-zinc-400 leading-relaxed">The LLM designs your app as a validated JSON document &mdash; entities, relationships, auth, endpoints. It never writes a line of code.</p>
+                <div class="text-[10px] font-bold text-accent-bright uppercase tracking-widest mb-1">AI = The What</div>
+                <p class="text-xs text-zinc-400 leading-relaxed">The LLM designs your app as a validated JSON document &mdash; entities, relationships, auth, endpoints. It never writes a line of code. It fills in a form, not writes a novel.</p>
               </div>
               <div class="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
-                <div class="text-[10px] font-bold text-mint uppercase tracking-widest mb-1">Templates = Control</div>
-                <p class="text-xs text-zinc-400 leading-relaxed">Deterministic Jinja2 templates enforce your org's dependency versions, security patterns, Docker configs, and coding standards. Same spec &rarr; same output.</p>
+                <div class="text-[10px] font-bold text-mint uppercase tracking-widest mb-1">Templates = The How</div>
+                <p class="text-xs text-zinc-400 leading-relaxed">Deterministic Jinja2 templates enforce your org's dependency versions, security patterns, Docker configs, and coding standards. Same spec &rarr; same code. Every time.</p>
               </div>
             </div>
             <p class="text-xs text-zinc-500 mt-3 leading-relaxed">
-              Language agnostic. Database agnostic. The spec is the source of truth &mdash; not the generated code.
-              Version-control the spec, diff it, review it, regenerate against new templates when standards evolve.
+              The spec is the source of truth &mdash; not the generated code.
+              Version-control it, diff it, review it as Markdown, regenerate when standards evolve.
+              The document model didn't need to bend to fit AI. AI simply arrived in a shape the document already understood.
             </p>
           </div>
 
@@ -1662,24 +1663,24 @@ tailwind.config = {
                 Why not just let AI write the code directly?
               </summary>
               <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                Because AI-generated code is non-deterministic. Two prompts for the same app produce different dependency versions,
-                different auth patterns, different error handling. In an enterprise, you need <strong>consistency</strong>:
-                every service uses the same bcrypt version, the same JWT flow, the same Docker base image.
-                Templates guarantee this. AI picks the <em>what</em>; your engineering team controls the <em>how</em>.
+                Because you cannot audit what you cannot reproduce. Ask a model to build the same feature twice &mdash;
+                you get two different implementations. Different libraries, different security patterns, different bugs.
+                In an enterprise, every service needs the same bcrypt version, the same JWT flow, the same Docker base image.
+                Templates guarantee this. The AI picks the <em>what</em>; your engineering team controls the <em>how</em>.
               </p>
             </details>
 
             <details class="group">
               <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
                 <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                Why is a JSON Document the right shape for this?
+                Why JSON? Why documents?
               </summary>
               <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                JSON is the native output format of every major LLM. It's also the native document format of MongoDB,
-                and the natural wire format for REST APIs. By choosing a JSON document as the spec format,
-                AppSpec sits naturally at the intersection of AI (generation), storage (document database),
-                and deployment (API contracts). The same spec targets Python + MongoDB, TypeScript + PostgreSQL,
-                or any future stack &mdash; because the spec <em>is</em> the abstraction layer.
+                When LLMs graduated to structured outputs, the format the industry converged on was <code>response_format: json</code>.
+                Not SQL. Not rows and foreign keys. Nested, flexible, self-describing documents &mdash;
+                the shape MongoDB has spoken natively since 2007. JSON is the only format at the intersection of
+                LLM output, schema validation, document storage, clean Git diffs, and template rendering.
+                The same spec targets Python + MongoDB, TypeScript + PostgreSQL, or any future stack.
               </p>
             </details>
 
@@ -1700,14 +1701,14 @@ tailwind.config = {
             <details class="group">
               <summary class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-colors py-1">
                 <svg class="w-3 h-3 text-zinc-600 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                What does "enterprise-safe" actually mean here?
+                What does "enterprise-safe" actually mean?
               </summary>
               <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                It means the generated code is <strong>auditable</strong> (spec is diffable and version-controlled),
-                <strong>consistent</strong> (templates pin dependency versions and enforce auth/RBAC patterns),
-                <strong>reproducible</strong> (same spec &rarr; same output, every time), and
-                <strong>evolvable</strong> (update the templates when security standards change, regenerate all services).
-                The AI never touches your production patterns &mdash; it only proposes a data model.
+                <strong>Auditable</strong> &mdash; the spec is diffable, version-controlled, and every LLM change is tagged with the model, the prompt, and the validation result.
+                <strong>Consistent</strong> &mdash; templates pin dependency versions and enforce auth/RBAC patterns.
+                <strong>Reproducible</strong> &mdash; same spec &rarr; same code, every time.
+                <strong>Evolvable</strong> &mdash; update templates when security standards change, regenerate all services.
+                The AI never touches your production patterns.
               </p>
             </details>
 
@@ -1731,10 +1732,10 @@ tailwind.config = {
                 Can I edit the spec and regenerate?
               </summary>
               <p class="text-xs text-zinc-500 leading-relaxed pl-5 pb-1">
-                Yes &mdash; that's the whole point. The spec is version-controlled, human-readable JSON.
+                That's the whole point. The spec is version-controlled, human-readable JSON.
                 Change a field type, add an entity, toggle auth, switch databases &mdash; then regenerate.
                 You get a new, consistent codebase that reflects exactly what the spec says.
-                This is spec-driven development: the document is the contract, the code is derived.
+                The document is the contract. The code is derived.
               </p>
             </details>
           </div>

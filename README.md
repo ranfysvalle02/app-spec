@@ -1,8 +1,8 @@
 # AppSpec
 
-**One sentence in. Full-stack app out.**
+**AI for creativity. Templates for control.**
 
-Describe what you want in plain English. AppSpec calls Gemini to produce a structured JSON spec, validates it with Pydantic, generates realistic seed data, then deterministically renders a complete app — FastAPI backend, your choice of MongoDB or PostgreSQL, Tailwind CRUD UI — ready to `docker compose up`.
+Today's vibe-coding tools let AI write code directly — fast, creative, and dangerously inconsistent. Two prompts for the same app produce different dependency versions, different auth patterns, different bugs. AppSpec rejects the premise. Instead of asking the LLM to write code, it asks the LLM to fill in a **structured JSON document** — entities, relationships, auth, endpoints. Then deterministic Jinja2 templates render the code. Same spec in, same code out. Every time.
 
 ```
 "A veterinary clinic app to manage pet owners, patients, and appointments"
@@ -17,6 +17,8 @@ Describe what you want in plain English. AppSpec calls Gemini to produce a struc
     ↓
  docker compose up --build → http://localhost:8000/ux
 ```
+
+The AI handles the *what*. Your templates handle the *how*. The spec is version-controlled, diffable, and human-reviewable. The code is derived.
 
 ## Try It
 
@@ -114,7 +116,7 @@ The spec itself is identical across engines — same entities, fields, endpoints
 
 ## How It Works
 
-AppSpec separates AI code generation into layers that each do one thing well:
+AppSpec separates the two things every AI code generation tool conflates: deciding *what* to build and deciding *how* to build it.
 
 | Layer | Who | What |
 |-------|-----|------|
@@ -126,7 +128,7 @@ AppSpec separates AI code generation into layers that each do one thing well:
 | **Code** | Jinja2 | Deterministic templates — same spec in, same code out |
 | **DB Init** | Init scripts | MongoDB JS or PostgreSQL SQL — auto-seeded on `docker compose up` |
 
-The LLM touches two things: the schema and the seed data. Everything else is deterministic. If the LLM produces a bad spec, Pydantic catches it and retries.
+The LLM touches two things: the schema and the seed data. Everything else is deterministic. If the LLM produces a bad spec, Pydantic catches it and retries. The LLM cannot opt out of security middleware because it never touches the code. Templates enforce parameterized queries, JWT auth, RBAC, and input validation by construction.
 
 ## The AppSpec Document
 
@@ -172,7 +174,7 @@ An AppSpec is a JSON document that describes *what* an application is — not *h
 | `sql-artifacts` | PostgreSQL SQL scripts | PostgreSQL |
 | `tailwind-ui` | Tailwind CSS + vanilla JS | Any (REST API) |
 
-Targets that don't support the spec's engine are automatically skipped during generation.
+Targets that don't support the spec's engine are automatically skipped during generation. Adding a new stack is pluggable — write a Jinja2 template set and register it as a target.
 
 ## CLI
 
@@ -221,14 +223,16 @@ app-spec/
     │   ├── cli/                 # Click CLI (thin command handlers)
     │   ├── compiler.py          # Spec folder serialization
     │   └── scaffold.py          # Project scaffolding
-    └── tests/                   # 191 tests (unit / integration / contract)
+    └── tests/                   # 230 tests (unit / integration / contract)
 ```
 
 See [docs/architecture.md](docs/architecture.md) for detailed module boundaries and design rules.
 
 ## Why JSON Documents?
 
-Read the full thesis: **[From Vibe Coding to Verified Code](BLOG.md)** — why the JSON document model is the right shape for AI code generation, and how AppSpec bridges the gap between fast-but-untrustable vibe coding and slow-but-reliable traditional engineering.
+Read the full thesis: **[From Vibe Coding to Verified Code](BLOG.md)**
+
+The short version: when LLMs graduated to structured outputs, the format the industry converged on was `response_format: json`. Not SQL. Not rows and foreign keys. Nested, flexible, self-describing documents — the shape MongoDB has spoken natively since 2007. JSON is the only format that sits at the intersection of LLM output, schema validation, document storage, clean diffs, and template rendering. The document model didn't need to bend to fit AI code generation. AI code generation simply arrived in a shape the document already understood.
 
 ## License
 
