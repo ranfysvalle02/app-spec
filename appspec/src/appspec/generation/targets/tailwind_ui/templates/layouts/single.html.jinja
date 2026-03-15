@@ -1,0 +1,7 @@
+{# Single-column layout: full-width sections stacked vertically #}
+<div class="space-y-6">
+{% for section in current_page.sections %}
+  {% set current_section = section %}
+  {% include "sections/" ~ section.type.value ~ ".html.jinja" %}
+{% endfor %}
+</div>

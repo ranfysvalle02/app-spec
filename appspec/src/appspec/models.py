@@ -186,16 +186,107 @@ class AuthSpec(BaseModel):
 # ── UI specs ─────────────────────────────────────────────────────────────────
 
 
+class SectionType(str, Enum):
+    TABLE = "table"
+    FORM = "form"
+    CHART = "chart"
+    KPI_ROW = "kpi_row"
+    CARD_GRID = "card_grid"
+    DETAIL = "detail"
+    LIST = "list"
+    CALENDAR = "calendar"
+    MAP = "map"
+    MARKDOWN = "markdown"
+    CUSTOM = "custom"
+
+
+class PageLayout(str, Enum):
+    SINGLE = "single"
+    SIDEBAR = "sidebar"
+    DASHBOARD = "dashboard"
+
+
+class ChartSectionConfig(BaseModel):
+    """Configuration for chart sections."""
+
+    chart_type: str = Field(default="bar", description="bar, line, pie, doughnut, area")
+    x_field: str = Field(default="", description="Field for the x-axis")
+    y_field: str = Field(default="", description="Field for the y-axis")
+    group_by: str = Field(default="", description="Field to group/categorize by")
+    aggregation: str = Field(default="count", description="count, sum, avg, min, max")
+
+
+class KPIMetric(BaseModel):
+    """A single KPI metric in a KPI row."""
+
+    label: str = Field(..., description="Display label")
+    data_source: str = Field(default="", description="Collection to aggregate over")
+    aggregation: str = Field(default="count", description="count, sum, avg, min, max")
+    field: str = Field(default="", description="Field to aggregate (ignored for count)")
+    icon: str = Field(default="", description="Optional icon name")
+    color: str = Field(default="", description="Accent color hint")
+
+
+class KPISectionConfig(BaseModel):
+    """Configuration for KPI row sections."""
+
+    metrics: list[KPIMetric] = Field(default_factory=list)
+
+
+class TableSectionConfig(BaseModel):
+    """Configuration for table sections."""
+
+    columns: list[str] = Field(default_factory=list, description="Fields to display (empty = all)")
+    default_sort: str = Field(default="", description="Default sort field")
+    page_size: int = Field(default=25)
+    row_actions: list[str] = Field(
+        default_factory=lambda: ["edit", "delete"],
+        description="Actions per row: edit, delete, view",
+    )
+
+
+class CardGridSectionConfig(BaseModel):
+    """Configuration for card grid sections."""
+
+    title_field: str = Field(default="", description="Field to use as card title")
+    subtitle_field: str = Field(default="", description="Field to use as card subtitle")
+    image_field: str = Field(default="", description="Field containing image URLs")
+    badge_field: str = Field(default="", description="Field for status badge")
+    columns: int = Field(default=3, description="Number of grid columns (2-4)")
+
+
+class DetailSectionConfig(BaseModel):
+    """Configuration for single-record detail sections."""
+
+    title_field: str = Field(default="", description="Field to use as detail title")
+    fields: list[str] = Field(default_factory=list, description="Fields to display (empty = all)")
+
+
 class PageSection(BaseModel):
     """A section within a custom page."""
 
     id: str = Field(..., description="Section identifier")
-    type: str = Field(
-        default="card", description="Section type: card, table, chart, form, custom"
+    type: SectionType = Field(
+        default=SectionType.TABLE,
+        description="Section type: table, chart, kpi_row, card_grid, form, detail, list, markdown, custom",
     )
     title: str = Field(default="")
     data_source: str = Field(default="", description="Collection or endpoint to fetch data from")
     config: dict[str, Any] = Field(default_factory=dict)
+    col_span: int = Field(default=1, description="Column span in dashboard grid (1-3)")
+    row_span: int = Field(default=1, description="Row span in dashboard grid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_section_type(cls, data: Any) -> Any:
+        """Accept raw strings for backward compatibility with existing specs."""
+        if isinstance(data, dict) and isinstance(data.get("type"), str):
+            raw = data["type"]
+            try:
+                SectionType(raw)
+            except ValueError:
+                data["type"] = SectionType.CUSTOM.value
+        return data
 
 
 class PageSpec(BaseModel):
@@ -204,6 +295,8 @@ class PageSpec(BaseModel):
     id: str = Field(..., description="URL-safe page identifier")
     label: str = Field(..., description="Navigation label")
     description: str = Field(default="")
+    layout: PageLayout = Field(default=PageLayout.SINGLE, description="Page layout: single, sidebar, dashboard")
+    icon: str = Field(default="", description="Optional icon identifier for navigation")
     data_collections: list[str] = Field(default_factory=list)
     sections: list[PageSection] = Field(default_factory=list)
     is_default: bool = Field(default=False, description="Show this page first")

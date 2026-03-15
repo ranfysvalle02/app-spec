@@ -69,6 +69,37 @@ Schema Design (critical — follow these to avoid anti-patterns):
   should have "relationships": ["Owner"].
 - Aim for 3-6 entities for a typical app. More entities means more joins and \
   more complexity. Consolidate aggressively.
+
+UI Pages (important — generates the frontend):
+- Generate "ui.pages" with at least 2 pages: a dashboard overview page and \
+  one CRUD page per key entity.
+- Page fields: id (kebab-case), label, layout ("single" | "sidebar" | "dashboard"), \
+  is_default (true for the dashboard page), sections.
+- Section fields: id (kebab-case), type, title, data_source (collection name), \
+  config (object), col_span (1-3, only meaningful in dashboard layout).
+- Section types and their config shapes:
+  - "kpi_row": config.metrics = [{"label":"...", "data_source":"collection_name", \
+    "aggregation":"count"|"sum"|"avg", "field":"field_name"}]. \
+    Use one metric per entity showing total count.
+  - "chart": config = {"chart_type":"bar"|"line"|"pie"|"doughnut", \
+    "group_by":"field_name", "y_field":"field_name", "x_field":"field_name", \
+    "aggregation":"count"|"sum"|"avg"}. Use group_by for categorical data (enum fields) \
+    or x_field for time-series (datetime fields).
+  - "table": config = {"columns":["field1","field2"] (optional subset), \
+    "default_sort":"field_name", "page_size":25}. Omit columns to show all fields.
+  - "card_grid": config = {"title_field":"name", "subtitle_field":"description", \
+    "badge_field":"status", "columns":3}. Good for visual entities (products, profiles).
+  - "form": config = {"fields":["field1","field2"]} (optional subset). \
+    Standalone create form for quick entry.
+  - "detail": config = {"title_field":"name", "fields":["field1","field2"]}.
+  - "markdown": config = {"content":"# Markdown here"}. Static content / help / onboarding.
+- Dashboard pages should use layout "dashboard" with: a kpi_row (col_span 3) at the top, \
+  then chart sections for entities with enum or datetime fields, then optionally a table.
+- Entity CRUD pages should use layout "single" with a "table" section.
+- Chart sections: use "pie" for enum fields (group_by), "line" for datetime fields (x_field). \
+  Always set aggregation to "count" unless there is a numeric field worth aggregating.
+- Every entity MUST be accessible from at least one page (usually its own CRUD page).
+- Set is_default=true on exactly one page (the dashboard).
 """
 
 SEED_PROMPT_MONGO = """\

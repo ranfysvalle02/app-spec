@@ -10,7 +10,17 @@ try:
 except ImportError:
     litellm = None  # type: ignore[assignment]
 
-from appspec.models import AppSpec, Endpoint, HttpMethod, CrudOperation
+from appspec.models import (
+    AppSpec,
+    CrudOperation,
+    Endpoint,
+    FieldType,
+    HttpMethod,
+    PageLayout,
+    PageSection,
+    PageSpec,
+    SectionType,
+)
 from appspec.validation import validate
 from appspec.llm.client import check_litellm, log_usage, DEFAULT_MODEL
 from appspec.llm.prompts import SCHEMA_PROMPT, get_seed_prompt
@@ -33,6 +43,110 @@ def _ensure_endpoints(spec: AppSpec) -> AppSpec:
         ])
     data = spec.to_dict()
     data["endpoints"] = [e.model_dump(mode="json") for e in endpoints]
+    return AppSpec.from_dict(data)
+
+
+def _ensure_pages(spec: AppSpec) -> AppSpec:
+    """Auto-generate sensible UI pages when ``spec.ui.pages`` is empty.
+
+    Produces a dashboard overview page plus one CRUD page per entity,
+    keeping backward compatibility with specs that predate the page system.
+    """
+    if spec.ui.pages:
+        return spec
+
+    pages: list[PageSpec] = []
+
+    # ── Dashboard page ───────────────────────────────────────────────────
+    dashboard_sections: list[PageSection] = []
+
+    # KPI row: one count metric per entity
+    kpi_metrics = [
+        {"label": entity.name, "data_source": entity.collection, "aggregation": "count"}
+        for entity in spec.entities
+    ]
+    dashboard_sections.append(
+        PageSection(
+            id="overview-kpis",
+            type=SectionType.KPI_ROW,
+            title="Overview",
+            config={"metrics": kpi_metrics},
+            col_span=3,
+        )
+    )
+
+    # Charts for entities with enum fields (pie) or sortable datetime fields (line)
+    for entity in spec.entities:
+        enum_fields = [f for f in entity.fields if f.type == FieldType.ENUM]
+        if enum_fields:
+            ef = enum_fields[0]
+            dashboard_sections.append(
+                PageSection(
+                    id=f"chart-{entity.collection}-{ef.name}",
+                    type=SectionType.CHART,
+                    title=f"{entity.name} by {ef.name.replace('_', ' ').title()}",
+                    data_source=entity.collection,
+                    config={
+                        "chart_type": "pie",
+                        "group_by": ef.name,
+                        "aggregation": "count",
+                    },
+                )
+            )
+
+        dt_fields = [
+            f for f in entity.fields
+            if f.type == FieldType.DATETIME and f.is_sortable
+        ]
+        if dt_fields:
+            df = dt_fields[0]
+            dashboard_sections.append(
+                PageSection(
+                    id=f"chart-{entity.collection}-{df.name}",
+                    type=SectionType.CHART,
+                    title=f"{entity.name} over Time",
+                    data_source=entity.collection,
+                    config={
+                        "chart_type": "line",
+                        "x_field": df.name,
+                        "aggregation": "count",
+                    },
+                )
+            )
+
+    pages.append(
+        PageSpec(
+            id="dashboard",
+            label="Dashboard",
+            layout=PageLayout.DASHBOARD,
+            icon="chart-bar",
+            is_default=True,
+            sections=dashboard_sections,
+        )
+    )
+
+    # ── One CRUD page per entity ─────────────────────────────────────────
+    for entity in spec.entities:
+        pages.append(
+            PageSpec(
+                id=entity.collection,
+                label=entity.name,
+                icon="table-cells",
+                data_collections=[entity.collection],
+                sections=[
+                    PageSection(
+                        id=f"table-{entity.collection}",
+                        type=SectionType.TABLE,
+                        title=entity.name,
+                        data_source=entity.collection,
+                        config={"page_size": 25},
+                    )
+                ],
+            )
+        )
+
+    data = spec.to_dict()
+    data["ui"]["pages"] = [p.model_dump(mode="json") for p in pages]
     return AppSpec.from_dict(data)
 
 
@@ -96,6 +210,7 @@ async def create_spec(
             continue
 
         spec = _ensure_endpoints(spec)
+        spec = _ensure_pages(spec)
         return spec
 
     raise last_error or ValueError("Failed to generate a valid AppSpec")

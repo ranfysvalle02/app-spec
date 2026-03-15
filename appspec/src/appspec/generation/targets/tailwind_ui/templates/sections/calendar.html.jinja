@@ -1,0 +1,13 @@
+{# Calendar section — date-based view (placeholder, rendered as list by date) #}
+<div id="section-{{ current_section.id }}" class="bg-white rounded-lg border border-gray-200 shadow-sm">
+{% if current_section.title %}
+  <div class="px-4 py-3 border-b border-gray-100">
+    <h3 class="text-sm font-semibold text-gray-700">{{ current_section.title }}</h3>
+  </div>
+{% endif %}
+  <div id="calendar-{{ current_section.id }}" class="p-4 space-y-2">
+  </div>
+  <div id="calendar-empty-{{ current_section.id }}" class="hidden p-10 text-center text-gray-400">
+    No events found.
+  </div>
+</div>

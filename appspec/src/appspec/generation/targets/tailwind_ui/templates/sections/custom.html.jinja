@@ -1,0 +1,13 @@
+{# Custom section — raw HTML/JS/CSS passthrough #}
+<div id="section-{{ current_section.id }}" class="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+{% if current_section.title %}
+  <h3 class="text-sm font-semibold text-gray-700 mb-3">{{ current_section.title }}</h3>
+{% endif %}
+{% if current_section.config.get('css') %}
+  <style>{{ current_section.config['css'] }}</style>
+{% endif %}
+  {{ current_section.config.get('html', '') }}
+{% if current_section.config.get('js') %}
+  <script>{{ current_section.config['js'] }}</script>
+{% endif %}
+</div>

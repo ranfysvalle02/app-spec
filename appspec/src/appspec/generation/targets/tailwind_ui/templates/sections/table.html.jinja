@@ -1,0 +1,33 @@
+{# CRUD table section — extracted from the original monolithic template #}
+<div id="section-{{ current_section.id }}" class="bg-white rounded-lg border border-gray-200 shadow-sm">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+    <h3 class="text-sm font-semibold text-gray-700">{{ current_section.title }}</h3>
+    <div class="flex items-center gap-2">
+      <div id="loading-{{ current_section.id }}" class="hidden"><span class="spinner"></span></div>
+      <button onclick="tableRefresh('{{ current_section.id }}')" class="text-xs text-indigo-600 hover:text-indigo-800">Refresh</button>
+      <button onclick="tableOpenCreate('{{ current_section.id }}')" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        New
+      </button>
+    </div>
+  </div>
+
+  <div id="filters-{{ current_section.id }}" class="flex flex-wrap gap-3 px-4 py-2 border-b border-gray-50"></div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50" id="thead-{{ current_section.id }}"></thead>
+      <tbody class="divide-y divide-gray-200" id="tbody-{{ current_section.id }}"></tbody>
+    </table>
+  </div>
+  <div id="empty-{{ current_section.id }}" class="hidden p-10 text-center text-gray-400">
+    <p class="text-base">No records yet</p>
+    <p class="text-sm mt-1">Click <strong>New</strong> to create one.</p>
+  </div>
+
+  <div id="pag-{{ current_section.id }}" class="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+    <button onclick="tablePrev('{{ current_section.id }}')" class="tbl-prev px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40" disabled>Previous</button>
+    <span class="tbl-page-info text-xs text-gray-500"></span>
+    <button onclick="tableNext('{{ current_section.id }}')" class="tbl-next px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40" disabled>Next</button>
+  </div>
+</div>

@@ -1,0 +1,11 @@
+{# KPI row — stat cards aggregated client-side #}
+<div id="section-{{ current_section.id }}" class="grid grid-cols-2 md:grid-cols-{{ current_section.config.get('metrics', []) | length | default(4, true) }} gap-4">
+{% for metric in current_section.config.get('metrics', []) %}
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">{{ metric.get('label', 'Metric') }}</p>
+    <div class="mt-1" id="kpi-{{ current_section.id }}-{{ loop.index0 }}">
+      <div class="h-7 w-16 bg-gray-200 rounded animate-pulse"></div>
+    </div>
+  </div>
+{% endfor %}
+</div>

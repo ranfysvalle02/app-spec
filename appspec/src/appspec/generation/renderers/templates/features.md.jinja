@@ -43,7 +43,7 @@
 | Section | Type | Data Source |
 |---------|------|-------------|
 {% for section in page.sections %}
-| {{ section.title or section.id }} | {{ section.type }} | {{ section.data_source or "—" }} |
+| {{ section.title or section.id }} | {{ section.type.value }} | {{ section.data_source or "—" }} |
 {% endfor %}
 {% endif %}
 

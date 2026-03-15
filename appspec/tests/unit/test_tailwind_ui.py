@@ -110,12 +110,13 @@ class TestTailwindUIGeneration:
         html = generate(_make_spec(), "tailwind-ui")["index.html"]
         assert "cdn.tailwindcss.com" in html
 
-    def test_contains_entity_tabs(self):
+    def test_contains_page_tabs(self):
         html = generate(_make_spec(), "tailwind-ui")["index.html"]
         assert "Widget" in html
         assert "Order" in html
-        assert 'data-collection="widgets"' in html
-        assert 'data-collection="orders"' in html
+        assert 'data-page="widgets"' in html
+        assert 'data-page="orders"' in html
+        assert 'data-page="dashboard"' in html
 
     def test_contains_entity_metadata(self):
         html = generate(_make_spec(), "tailwind-ui")["index.html"]
@@ -153,10 +154,10 @@ class TestTailwindUIGeneration:
 
     def test_crud_functions_present(self):
         html = generate(_make_spec(), "tailwind-ui")["index.html"]
-        assert "fetchList" in html
-        assert "createOne" in html
-        assert "updateOne" in html
-        assert "deleteOne" in html
+        assert "loadTableData" in html
+        assert "handleSubmit" in html
+        assert "confirmDelete" in html
+        assert "async function api(" in html
 
     def test_modal_elements_present(self):
         html = generate(_make_spec(), "tailwind-ui")["index.html"]
@@ -167,9 +168,31 @@ class TestTailwindUIGeneration:
     def test_form_rendering_function(self):
         html = generate(_make_spec(), "tailwind-ui")["index.html"]
         assert "renderForm" in html
-        assert "renderTable" in html
-        assert "renderFilters" in html
+        assert "renderTableSection" in html
+        assert "renderTableFilters" in html
 
     def test_min_max_constraints(self):
         html = generate(_make_spec(), "tailwind-ui")["index.html"]
         assert "min: 0" in html
+
+    def test_contains_fetch_cache(self):
+        html = generate(_make_spec(), "tailwind-ui")["index.html"]
+        assert "fetchAllCached" in html
+        assert "invalidateCache" in html
+        assert "_fetchCache" in html
+
+    def test_contains_hash_routing(self):
+        html = generate(_make_spec(), "tailwind-ui")["index.html"]
+        assert "location.hash" in html
+        assert "hashchange" in html
+        assert "history.replaceState" in html
+
+    def test_contains_error_boundary(self):
+        html = generate(_make_spec(), "tailwind-ui")["index.html"]
+        assert "wrapInit" in html
+        assert "Failed to load section" in html
+        assert "Retry" in html
+
+    def test_contains_loading_skeletons(self):
+        html = generate(_make_spec(), "tailwind-ui")["index.html"]
+        assert "animate-pulse" in html

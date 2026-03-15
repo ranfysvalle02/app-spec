@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ spec.app_name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+{% if has_charts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% endif %}
+  <style>
+    .modal-backdrop { transition: opacity 0.15s ease; }
+    .modal-panel { transition: transform 0.15s ease, opacity 0.15s ease; }
+    [x-cloak] { display: none !important; }
+    .spinner { border: 2px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; width: 1.25rem; height: 1.25rem; animation: spin 0.6s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+{% include "partials/auth.html.jinja" %}
+
+<div id="app-container" {% if spec.auth.enabled %}class="hidden"{% endif %}>
+
+{% include "partials/nav.html.jinja" %}
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+{% for page in pages %}
+  <div id="page-{{ page.id }}" class="page-container {{ '' if page.is_default else 'hidden' }}">
+    {% set current_page = page %}
+    {% include "layouts/" ~ page.layout.value ~ ".html.jinja" %}
+  </div>
+{% endfor %}
+</main>
+
+</div>
+
+{% include "partials/modal.html.jinja" %}
+{% include "partials/toast.html.jinja" %}
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// Configuration (generated from AppSpec — backend-agnostic)
+// ═══════════════════════════════════════════════════════════════════════════
+const API_BASE = new URLSearchParams(window.location.search).get('api') || '/api';
+const AUTH_ENABLED = {{ 'true' if spec.auth.enabled else 'false' }};
+const PAGE_SIZE = 50;
+
+const ENTITIES = {
+{% for entity in spec.entities %}
+  '{{ entity.collection }}': {
+    name: '{{ entity.name }}',
+    collection: '{{ entity.collection }}',
+    fields: [
+{% for field in entity.fields %}
+      {
+        name: '{{ field.name }}',
+        type: '{{ field.type.value }}',
+        required: {{ 'true' if field.required else 'false' }},
+        label: '{{ field.name | replace("_", " ") | title }}',
+{% if field.enum_values %}
+        enumValues: {{ field.enum_values | tojson }},
+{% endif %}
+{% if field.reference %}
+        reference: '{{ field.reference }}',
+{% endif %}
+{% if field.min_value is not none %}
+        min: {{ field.min_value }},
+{% endif %}
+{% if field.max_value is not none %}
+        max: {{ field.max_value }},
+{% endif %}
+{% if field.max_length %}
+        maxLength: {{ field.max_length }},
+{% endif %}
+        filterable: {{ 'true' if field.is_filterable else 'false' }},
+        sortable: {{ 'true' if field.is_sortable else 'false' }},
+        unique: {{ 'true' if field.is_unique else 'false' }},
+        description: '{{ field.description | replace("'", "\\'") }}',
+      },
+{% endfor %}
+    ],
+  },
+{% endfor %}
+};
+
+const PAGES = {{ pages_json }};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════════
+let activePage = PAGES.find(p => p.is_default) || PAGES[0];
+let refCache = {};
+
+// Per-table-section state keyed by section id
+const tableState = {};
+
+// Section init registry — each section template registers its init function
+const SECTION_INIT = {};
+
+{% if spec.auth.enabled %}
+// ═══════════════════════════════════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════════════════════════════════
+let authMode = 'login';
+let authToken = localStorage.getItem('appspec_token');
+
+function showAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('auth-login-tab').className = mode === 'login'
+    ? 'flex-1 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white'
+    : 'flex-1 py-2 text-sm font-medium rounded-md bg-gray-100 text-gray-600';
+  document.getElementById('auth-register-tab').className = mode === 'register'
+    ? 'flex-1 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white'
+    : 'flex-1 py-2 text-sm font-medium rounded-md bg-gray-100 text-gray-600';
+  document.getElementById('auth-btn-text').textContent = mode === 'login' ? 'Sign In' : 'Create Account';
+{% if spec.auth.roles %}
+  document.getElementById('auth-role-field').classList.toggle('hidden', mode === 'login');
+{% endif %}
+  document.getElementById('auth-error').classList.add('hidden');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const username = document.getElementById('auth-username').value;
+  const password = document.getElementById('auth-password').value;
+  const errorEl = document.getElementById('auth-error');
+  errorEl.classList.add('hidden');
+  try {
+    if (authMode === 'register') {
+      const body = { username, password };
+{% if spec.auth.roles %}
+      body.role = document.getElementById('auth-role').value;
+{% endif %}
+      await api('POST', '/auth/register', body);
+    }
+    const form = new URLSearchParams();
+    form.append('username', username);
+    form.append('password', password);
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || err.error || 'Login failed');
+    }
+    const data = await res.json();
+    authToken = data.access_token;
+    localStorage.setItem('appspec_token', authToken);
+    enterApp();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function enterApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-container').classList.remove('hidden');
+  try {
+    const payload = JSON.parse(atob(authToken.split('.')[1]));
+    document.getElementById('user-badge').textContent = payload.sub + (payload.role ? ` (${payload.role})` : '');
+  } catch {}
+  initActivePage();
+}
+
+function logout() {
+  authToken = null;
+  localStorage.removeItem('appspec_token');
+  refCache = {};
+  document.getElementById('app-container').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('auth-username').value = '';
+  document.getElementById('auth-password').value = '';
+}
+{% endif %}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API Layer (backend-agnostic REST convention)
+// ═══════════════════════════════════════════════════════════════════════════
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+{% if spec.auth.enabled %}
+  if (authToken) opts.headers['Authorization'] = `Bearer ${authToken}`;
+{% endif %}
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE}${path}`, opts);
+{% if spec.auth.enabled %}
+  if (res.status === 401) { logout(); throw new Error('Session expired'); }
+{% endif %}
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || err.error || err.message || res.statusText);
+  }
+  if (res.status === 204 || method === 'DELETE') {
+    return res.status < 300 ? await res.json().catch(() => ({})) : {};
+  }
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shared Helpers (backend-agnostic aggregation)
+// ═══════════════════════════════════════════════════════════════════════════
+async function fetchAll(collection) {
+  let all = [], skip = 0;
+  while (true) {
+    const batch = await api('GET', `/${collection}?skip=${skip}&limit=200`);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    all = all.concat(batch);
+    if (batch.length < 200) break;
+    skip += 200;
+  }
+  return all;
+}
+
+const _fetchCache = {};
+async function fetchAllCached(collection) {
+  if (!_fetchCache[collection]) _fetchCache[collection] = fetchAll(collection);
+  return _fetchCache[collection];
+}
+function invalidateCache(collection) {
+  if (collection) delete _fetchCache[collection];
+  else Object.keys(_fetchCache).forEach(k => delete _fetchCache[k]);
+}
+
+function groupBy(data, field) {
+  const groups = {};
+  for (const d of data) {
+    const key = d[field] ?? '(empty)';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(d);
+  }
+  return groups;
+}
+
+function aggregate(data, field, op) {
+  if (!data.length) return 0;
+  if (op === 'count') return data.length;
+  const vals = data.map(d => Number(d[field])).filter(v => !isNaN(v));
+  if (!vals.length) return 0;
+  if (op === 'sum') return vals.reduce((a, b) => a + b, 0);
+  if (op === 'avg') return vals.reduce((a, b) => a + b, 0) / vals.length;
+  if (op === 'min') return Math.min(...vals);
+  if (op === 'max') return Math.max(...vals);
+  return vals.length;
+}
+
+function timeSeriesBucket(data, dateField, granularity) {
+  const buckets = {};
+  for (const d of data) {
+    if (!d[dateField]) continue;
+    const dt = new Date(d[dateField]);
+    let key;
+    if (granularity === 'day') key = dt.toISOString().slice(0, 10);
+    else if (granularity === 'month') key = dt.toISOString().slice(0, 7);
+    else key = `${dt.getFullYear()}-W${String(Math.ceil((dt.getDate()) / 7)).padStart(2, '0')}`;
+    if (!buckets[key]) buckets[key] = [];
+    buckets[key].push(d);
+  }
+  return buckets;
+}
+
+const CHART_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#84cc16'];
+
+async function resolveRef(collection, id) {
+  if (!id || typeof id !== 'string' || id.length < 12) return id;
+  const cacheKey = `${collection}:${id}`;
+  if (refCache[cacheKey]) return refCache[cacheKey];
+  try {
+    const doc = await api('GET', `/${collection}/${id}`);
+    const label = doc.name || doc.title || doc.username || doc.label || id;
+    refCache[cacheKey] = label;
+    return label;
+  } catch { refCache[cacheKey] = id; return id; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Page Navigation
+// ═══════════════════════════════════════════════════════════════════════════
+function switchPage(pageId, updateHash) {
+  document.querySelectorAll('.page-container').forEach(el => el.classList.add('hidden'));
+  const target = document.getElementById('page-' + pageId);
+  if (target) target.classList.remove('hidden');
+
+  document.querySelectorAll('.page-tab').forEach(btn => {
+    const active = btn.dataset.page === pageId;
+    btn.classList.toggle('border-indigo-500', active);
+    btn.classList.toggle('text-indigo-600', active);
+    btn.classList.toggle('border-transparent', !active);
+    btn.classList.toggle('text-gray-500', !active);
+  });
+
+  activePage = PAGES.find(p => p.id === pageId) || PAGES[0];
+  if (updateHash !== false) history.replaceState(null, '', '#' + pageId);
+  invalidateCache();
+  initActivePage();
+}
+
+window.addEventListener('hashchange', () => {
+  const id = window.location.hash.slice(1);
+  if (id && PAGES.find(p => p.id === id)) switchPage(id, false);
+});
+
+function initActivePage() {
+  if (!activePage) return;
+  for (const section of activePage.sections) {
+    if (SECTION_INIT[section.id]) {
+      SECTION_INIT[section.id]();
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Table Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+function getTableState(sectionId) {
+  if (!tableState[sectionId]) {
+    const sec = findSection(sectionId);
+    tableState[sectionId] = {
+      collection: sec ? sec.data_source : '',
+      data: [],
+      skip: 0,
+      pageSize: (sec && sec.config && sec.config.page_size) || PAGE_SIZE,
+      sortField: (sec && sec.config && sec.config.default_sort) || null,
+      sortDir: 1,
+      filters: {},
+      editingId: null,
+      deletingId: null,
+    };
+  }
+  return tableState[sectionId];
+}
+
+function findSection(sectionId) {
+  for (const p of PAGES) {
+    for (const s of p.sections) {
+      if (s.id === sectionId) return s;
+    }
+  }
+  return null;
+}
+
+function tableRefresh(sectionId) { loadTableData(sectionId); }
+function tablePrev(sectionId) { const s = getTableState(sectionId); s.skip = Math.max(0, s.skip - s.pageSize); loadTableData(sectionId); }
+function tableNext(sectionId) { const s = getTableState(sectionId); s.skip += s.pageSize; loadTableData(sectionId); }
+
+async function loadTableData(sectionId) {
+  const st = getTableState(sectionId);
+  const entity = ENTITIES[st.collection];
+  if (!entity) return;
+
+  const loader = document.getElementById('loading-' + sectionId);
+  if (loader) loader.classList.remove('hidden');
+
+  try {
+    let data = await api('GET', `/${st.collection}?skip=${st.skip}&limit=${st.pageSize}`);
+    if (!Array.isArray(data)) data = [];
+
+    for (const [field, value] of Object.entries(st.filters)) {
+      if (value) data = data.filter(d => String(d[field]) === value);
+    }
+    if (st.sortField) {
+      data.sort((a, b) => {
+        const va = a[st.sortField] ?? '', vb = b[st.sortField] ?? '';
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * st.sortDir;
+        return String(va).localeCompare(String(vb)) * st.sortDir;
+      });
+    }
+
+    st.data = data;
+    await renderTableSection(sectionId, entity, data);
+    renderTableFilters(sectionId, entity);
+    renderTablePagination(sectionId, data.length);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (loader) loader.classList.add('hidden');
+  }
+}
+
+async function renderTableSection(sectionId, entity, data) {
+  const head = document.getElementById('thead-' + sectionId);
+  const body = document.getElementById('tbody-' + sectionId);
+  const empty = document.getElementById('empty-' + sectionId);
+  if (!head || !body) return;
+
+  const st = getTableState(sectionId);
+  const sec = findSection(sectionId);
+  const configCols = sec && sec.config && sec.config.columns;
+  const visibleFields = entity.fields.filter(f => {
+    if (f.type === 'text') return false;
+    if (configCols && configCols.length) return configCols.includes(f.name);
+    return true;
+  });
+
+  head.innerHTML = `<tr>
+    ${visibleFields.map(f => `
+      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider
+                 ${f.sortable ? 'cursor-pointer hover:text-gray-700 select-none' : ''}"
+          ${f.sortable ? `onclick="tableToggleSort('${sectionId}','${f.name}')"` : ''}>
+        ${f.label}
+        ${f.sortable ? `<span class="ml-1 text-indigo-400">${st.sortField === f.name ? (st.sortDir === 1 ? '↑' : '↓') : '⇅'}</span>` : ''}
+      </th>`).join('')}
+    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
+  </tr>`;
+
+  if (!data.length) {
+    body.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  const refFields = visibleFields.filter(f => f.type === 'reference' && f.reference);
+  if (refFields.length) {
+    const promises = [];
+    for (const doc of data) {
+      for (const f of refFields) {
+        if (doc[f.name]) promises.push(resolveRef(f.reference, doc[f.name]));
+      }
+    }
+    await Promise.allSettled(promises);
+  }
+
+  body.innerHTML = data.map(doc => {
+    const id = doc._id || doc.id;
+    return `<tr class="hover:bg-gray-50 transition-colors">
+      ${visibleFields.map(f => `<td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">${formatCell(doc[f.name], f)}</td>`).join('')}
+      <td class="px-4 py-3 text-sm text-right whitespace-nowrap">
+        <button onclick="tableOpenEdit('${sectionId}','${id}')" class="text-indigo-600 hover:text-indigo-800 mr-2">Edit</button>
+        <button onclick="tableOpenDelete('${sectionId}','${id}')" class="text-red-500 hover:text-red-700">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function formatCell(value, field) {
+  if (value === null || value === undefined) return '<span class="text-gray-300">—</span>';
+  if (field.type === 'reference' && field.reference) {
+    const label = refCache[`${field.reference}:${value}`] || value;
+    return `<span class="text-indigo-600" title="${value}">${label}</span>`;
+  }
+  if (field.type === 'boolean') return value
+    ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Yes</span>'
+    : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">No</span>';
+  if (field.type === 'enum') return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">${value}</span>`;
+  if (field.type === 'datetime') {
+    try { return new Date(value).toLocaleDateString(); } catch { return value; }
+  }
+  if (field.type === 'float' || field.type === 'integer') return `<span class="font-mono">${value}</span>`;
+  if (typeof value === 'string' && value.length > 60) return value.slice(0, 57) + '…';
+  return String(value);
+}
+
+function renderTableFilters(sectionId, entity) {
+  const bar = document.getElementById('filters-' + sectionId);
+  if (!bar) return;
+  const st = getTableState(sectionId);
+  const filterFields = entity.fields.filter(f => f.filterable && f.enumValues);
+  if (!filterFields.length) { bar.innerHTML = ''; bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = filterFields.map(f => `
+    <div class="flex items-center gap-2">
+      <label class="text-xs font-medium text-gray-500 uppercase">${f.label}</label>
+      <select onchange="tableSetFilter('${sectionId}','${f.name}', this.value)"
+              class="text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 py-1 px-2">
+        <option value="">All</option>
+        ${f.enumValues.map(v => `<option value="${v}" ${st.filters[f.name] === v ? 'selected' : ''}>${v}</option>`).join('')}
+      </select>
+    </div>`).join('');
+}
+
+function renderTablePagination(sectionId, count) {
+  const pag = document.getElementById('pag-' + sectionId);
+  if (!pag) return;
+  const st = getTableState(sectionId);
+  const noPag = st.skip === 0 && count < st.pageSize;
+  pag.style.display = noPag ? 'none' : 'flex';
+  pag.querySelector('.tbl-prev').disabled = st.skip === 0;
+  pag.querySelector('.tbl-next').disabled = count < st.pageSize;
+  const page = Math.floor(st.skip / st.pageSize) + 1;
+  pag.querySelector('.tbl-page-info').textContent = `Page ${page}`;
+}
+
+function tableToggleSort(sectionId, field) {
+  const st = getTableState(sectionId);
+  if (st.sortField === field) st.sortDir *= -1;
+  else { st.sortField = field; st.sortDir = 1; }
+  loadTableData(sectionId);
+}
+
+function tableSetFilter(sectionId, field, value) {
+  const st = getTableState(sectionId);
+  if (value) st.filters[field] = value;
+  else delete st.filters[field];
+  st.skip = 0;
+  loadTableData(sectionId);
+}
+
+// ── Table CRUD modals ───────────────────────────────────────────
+let activeTableSection = null;
+
+function tableOpenCreate(sectionId) {
+  activeTableSection = sectionId;
+  const st = getTableState(sectionId);
+  const entity = ENTITIES[st.collection];
+  st.editingId = null;
+  document.getElementById('modal-title').textContent = `New ${entity.name}`;
+  renderForm(entity);
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function tableOpenEdit(sectionId, id) {
+  activeTableSection = sectionId;
+  const st = getTableState(sectionId);
+  const entity = ENTITIES[st.collection];
+  const doc = st.data.find(d => (d._id || d.id) === id);
+  if (!doc) return;
+  st.editingId = id;
+  document.getElementById('modal-title').textContent = `Edit ${entity.name}`;
+  renderForm(entity, doc);
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function tableOpenDelete(sectionId, id) {
+  activeTableSection = sectionId;
+  getTableState(sectionId).deletingId = id;
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  if (activeTableSection) getTableState(activeTableSection).editingId = null;
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.add('hidden');
+  if (activeTableSection) getTableState(activeTableSection).deletingId = null;
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+  if (!activeTableSection) return;
+  const st = getTableState(activeTableSection);
+  const entity = ENTITIES[st.collection];
+  const formData = collectFormData(entity);
+  try {
+    if (st.editingId) {
+      await api('PUT', `/${st.collection}/${st.editingId}`, formData);
+      showToast(`${entity.name} updated`);
+    } else {
+      await api('POST', `/${st.collection}`, formData);
+      showToast(`${entity.name} created`);
+    }
+    closeModal();
+    invalidateCache(st.collection);
+    loadTableData(activeTableSection);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function confirmDelete() {
+  if (!activeTableSection) return;
+  const st = getTableState(activeTableSection);
+  if (!st.deletingId) return;
+  const entity = ENTITIES[st.collection];
+  try {
+    await api('DELETE', `/${st.collection}/${st.deletingId}`);
+    showToast(`${entity.name} deleted`);
+    closeDeleteModal();
+    invalidateCache(st.collection);
+    loadTableData(activeTableSection);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Form Rendering (shared by table + form sections)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderForm(entity, doc, containerId) {
+  const container = document.getElementById(containerId || 'form-fields');
+  if (!container) return;
+  container.innerHTML = entity.fields.map(f => {
+    const val = doc ? (doc[f.name] ?? '') : '';
+    const req = f.required ? 'required' : '';
+    const id = `field-${f.name}`;
+    let input = '';
+    switch (f.type) {
+      case 'reference':
+        input = `<select id="${id}" name="${f.name}" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">
+                   <option value="">Loading...</option>
+                 </select>`;
+        if (f.reference) {
+          (async () => {
+            try {
+              const items = await api('GET', '/' + f.reference + '?skip=0&limit=200');
+              const sel = document.getElementById(id);
+              if (!sel) return;
+              const displayField = items.length ? Object.keys(items[0]).find(k => k !== '_id' && k !== 'id' && typeof items[0][k] === 'string') || '_id' : '_id';
+              sel.innerHTML = '<option value="">Select...</option>' +
+                items.map(item => {
+                  const itemId = item._id || item.id;
+                  const label = item[displayField] || item.name || itemId;
+                  return `<option value="${itemId}" ${String(val) === String(itemId) ? 'selected' : ''}>${label}</option>`;
+                }).join('');
+            } catch(e) {
+              const sel = document.getElementById(id);
+              if (sel) sel.innerHTML = `<option value="">Error loading</option>`;
+            }
+          })();
+        }
+        break;
+      case 'enum':
+        input = `<select id="${id}" name="${f.name}" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">
+                   <option value="">Select...</option>
+                   ${(f.enumValues||[]).map(v => `<option value="${v}" ${val === v ? 'selected' : ''}>${v}</option>`).join('')}
+                 </select>`;
+        break;
+      case 'boolean':
+        input = `<div class="mt-2"><label class="inline-flex items-center gap-2">
+                   <input type="checkbox" id="${id}" name="${f.name}" ${val ? 'checked' : ''}
+                     class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                   <span class="text-sm text-gray-600">Enabled</span></label></div>`;
+        break;
+      case 'integer': case 'float':
+        input = `<input type="number" id="${id}" name="${f.name}" value="${val}" ${req}
+                   ${f.type === 'float' ? 'step="any"' : 'step="1"'}
+                   ${f.min !== undefined ? `min="${f.min}"` : ''} ${f.max !== undefined ? `max="${f.max}"` : ''}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+        break;
+      case 'datetime':
+        const dtVal = val ? new Date(val).toISOString().slice(0, 16) : '';
+        input = `<input type="datetime-local" id="${id}" name="${f.name}" value="${dtVal}" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+        break;
+      case 'email':
+        input = `<input type="email" id="${id}" name="${f.name}" value="${val}" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+        break;
+      case 'text':
+        input = `<textarea id="${id}" name="${f.name}" rows="3" ${req}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">${val}</textarea>`;
+        break;
+      default:
+        input = `<input type="text" id="${id}" name="${f.name}" value="${val}" ${req}
+                   ${f.maxLength ? `maxlength="${f.maxLength}"` : ''}
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm py-2 px-3 border">`;
+    }
+    return `<div>
+      <label for="${id}" class="block text-sm font-medium text-gray-700">${f.label}${f.required ? ' <span class="text-red-400">*</span>' : ''}</label>
+      ${input}
+      ${f.description ? `<p class="mt-1 text-xs text-gray-400">${f.description}</p>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function collectFormData(entity) {
+  const formData = {};
+  entity.fields.forEach(f => {
+    const el = document.getElementById(`field-${f.name}`);
+    if (!el) return;
+    if (f.type === 'boolean') formData[f.name] = el.checked;
+    else if (f.type === 'integer') formData[f.name] = el.value ? parseInt(el.value, 10) : null;
+    else if (f.type === 'float') formData[f.name] = el.value ? parseFloat(el.value) : null;
+    else if (f.type === 'datetime') formData[f.name] = el.value ? new Date(el.value).toISOString() : null;
+    else formData[f.name] = el.value || null;
+    if (formData[f.name] === null && !f.required) delete formData[f.name];
+  });
+  return formData;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Form Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+async function sectionFormSubmit(e, sectionId) {
+  e.preventDefault();
+  const sec = findSection(sectionId);
+  if (!sec || !sec.data_source) return;
+  const entity = ENTITIES[sec.data_source];
+  if (!entity) return;
+  const formData = collectFormData(entity);
+  try {
+    await api('POST', `/${sec.data_source}`, formData);
+    showToast(`${entity.name} created`);
+    e.target.reset();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KPI Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+async function initKPI(sectionId) {
+  const sec = findSection(sectionId);
+  if (!sec || !sec.config || !sec.config.metrics) return;
+  const metrics = sec.config.metrics;
+  for (let i = 0; i < metrics.length; i++) {
+    const m = metrics[i];
+    const el = document.getElementById(`kpi-${sectionId}-${i}`);
+    if (!el) continue;
+    try {
+      const ds = m.data_source || sec.data_source;
+      if (!ds) { el.textContent = '—'; continue; }
+      const data = await fetchAllCached(ds);
+      const val = aggregate(data, m.field || '', m.aggregation || 'count');
+      el.innerHTML = `<span class="text-2xl font-bold text-gray-900">${typeof val === 'number' ? val.toLocaleString() : val}</span>`;
+    } catch { el.innerHTML = '<span class="text-sm text-red-500">err</span>'; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Chart Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+{% if has_charts %}
+const chartInstances = {};
+
+async function initChart(sectionId) {
+  const sec = findSection(sectionId);
+  if (!sec || !sec.data_source) return;
+  const cfg = sec.config || {};
+  const canvas = document.getElementById('canvas-' + sectionId);
+  if (!canvas) return;
+
+  try {
+    const data = await fetchAllCached(sec.data_source);
+    const chartType = cfg.chart_type || 'bar';
+    const skeleton = document.getElementById('skeleton-' + sectionId);
+    if (skeleton) skeleton.remove();
+
+    if (chartInstances[sectionId]) chartInstances[sectionId].destroy();
+
+    if (cfg.group_by) {
+      const grouped = groupBy(data, cfg.group_by);
+      const labels = Object.keys(grouped);
+      const values = labels.map(l => {
+        if (cfg.aggregation === 'count') return grouped[l].length;
+        return aggregate(grouped[l], cfg.y_field || '', cfg.aggregation || 'count');
+      });
+      chartInstances[sectionId] = new Chart(canvas, {
+        type: chartType === 'area' ? 'line' : chartType,
+        data: {
+          labels,
+          datasets: [{
+            label: sec.title || sec.data_source,
+            data: values,
+            backgroundColor: CHART_COLORS.slice(0, labels.length),
+            borderColor: chartType === 'line' || chartType === 'area' ? CHART_COLORS[0] : CHART_COLORS.slice(0, labels.length),
+            fill: chartType === 'area',
+          }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: chartType === 'pie' || chartType === 'doughnut' } } },
+      });
+    } else if (cfg.x_field) {
+      const buckets = timeSeriesBucket(data, cfg.x_field, 'day');
+      const labels = Object.keys(buckets).sort();
+      const values = labels.map(l => {
+        if (cfg.aggregation === 'count') return buckets[l].length;
+        return aggregate(buckets[l], cfg.y_field || '', cfg.aggregation || 'count');
+      });
+      chartInstances[sectionId] = new Chart(canvas, {
+        type: chartType === 'area' ? 'line' : (chartType || 'line'),
+        data: {
+          labels,
+          datasets: [{
+            label: sec.title || sec.data_source,
+            data: values,
+            borderColor: CHART_COLORS[0],
+            backgroundColor: CHART_COLORS[0] + '33',
+            fill: chartType === 'area',
+            tension: 0.3,
+          }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      });
+    }
+  } catch (err) {
+    console.error('Chart init error:', err);
+  }
+}
+{% endif %}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Card Grid Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+async function initCardGrid(sectionId) {
+  const sec = findSection(sectionId);
+  if (!sec || !sec.data_source) return;
+  const entity = ENTITIES[sec.data_source];
+  if (!entity) return;
+  const cfg = sec.config || {};
+
+  const container = document.getElementById('cards-' + sectionId);
+  const emptyEl = document.getElementById('cards-empty-' + sectionId);
+  if (!container) return;
+
+  try {
+    const data = await fetchAllCached(sec.data_source);
+    if (!data.length) {
+      container.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+    if (emptyEl) emptyEl.classList.add('hidden');
+
+    const titleField = cfg.title_field || entity.fields.find(f => f.type === 'string' && f.name.match(/name|title/i))?.name || entity.fields[0]?.name || '';
+    const subtitleField = cfg.subtitle_field || '';
+    const badgeField = cfg.badge_field || entity.fields.find(f => f.type === 'enum')?.name || '';
+
+    container.innerHTML = data.map(doc => {
+      const title = doc[titleField] || '(untitled)';
+      const subtitle = subtitleField ? (doc[subtitleField] || '') : '';
+      const badge = badgeField ? (doc[badgeField] || '') : '';
+      return `<div class="bg-white rounded-lg border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow">
+        ${badge ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 mb-2">${badge}</span>` : ''}
+        <h4 class="text-sm font-semibold text-gray-900">${title}</h4>
+        ${subtitle ? `<p class="text-xs text-gray-500 mt-1">${subtitle}</p>` : ''}
+      </div>`;
+    }).join('');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function cardGridRefresh(sectionId) { initCardGrid(sectionId); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Detail Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+async function initDetail(sectionId) {
+  const sec = findSection(sectionId);
+  if (!sec || !sec.data_source) return;
+  const entity = ENTITIES[sec.data_source];
+  if (!entity) return;
+  const cfg = sec.config || {};
+
+  const container = document.getElementById('detail-fields-' + sectionId);
+  const emptyEl = document.getElementById('detail-empty-' + sectionId);
+  if (!container) return;
+
+  try {
+    const data = await api('GET', `/${sec.data_source}?skip=0&limit=1`);
+    const doc = Array.isArray(data) ? data[0] : data;
+    if (!doc) { if (emptyEl) emptyEl.classList.remove('hidden'); return; }
+    if (emptyEl) emptyEl.classList.add('hidden');
+
+    const fields = (cfg.fields && cfg.fields.length) ? entity.fields.filter(f => cfg.fields.includes(f.name)) : entity.fields;
+    container.innerHTML = fields.map(f => `
+      <div class="py-3 flex justify-between gap-4">
+        <dt class="text-sm font-medium text-gray-500">${f.label}</dt>
+        <dd class="text-sm text-gray-900">${formatCell(doc[f.name], f)}</dd>
+      </div>`).join('');
+
+    if (cfg.title_field && doc[cfg.title_field]) {
+      const titleEl = document.getElementById('detail-title-' + sectionId);
+      if (titleEl) titleEl.textContent = doc[cfg.title_field];
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// List Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+async function initList(sectionId) {
+  const sec = findSection(sectionId);
+  if (!sec || !sec.data_source) return;
+  const entity = ENTITIES[sec.data_source];
+  if (!entity) return;
+
+  const container = document.getElementById('list-items-' + sectionId);
+  const emptyEl = document.getElementById('list-empty-' + sectionId);
+  if (!container) return;
+
+  try {
+    const data = await api('GET', `/${sec.data_source}?skip=0&limit=50`);
+    if (!Array.isArray(data) || !data.length) {
+      container.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+    if (emptyEl) emptyEl.classList.add('hidden');
+
+    const titleField = entity.fields.find(f => f.type === 'string' && f.name.match(/name|title/i))?.name || entity.fields[0]?.name || '';
+    const dateField = entity.fields.find(f => f.type === 'datetime')?.name || '';
+
+    container.innerHTML = data.map(doc => {
+      const title = doc[titleField] || '(untitled)';
+      const date = dateField && doc[dateField] ? new Date(doc[dateField]).toLocaleDateString() : '';
+      return `<li class="px-4 py-3 flex items-center justify-between">
+        <span class="text-sm text-gray-900">${title}</span>
+        ${date ? `<span class="text-xs text-gray-400">${date}</span>` : ''}
+      </li>`;
+    }).join('');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function listRefresh(sectionId) { initList(sectionId); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Calendar Section Logic
+// ═══════════════════════════════════════════════════════════════════════════
+async function initCalendar(sectionId) {
+  const sec = findSection(sectionId);
+  if (!sec || !sec.data_source) return;
+  const entity = ENTITIES[sec.data_source];
+  if (!entity) return;
+
+  const container = document.getElementById('calendar-' + sectionId);
+  const emptyEl = document.getElementById('calendar-empty-' + sectionId);
+  if (!container) return;
+
+  const dateField = (sec.config && sec.config.date_field) || entity.fields.find(f => f.type === 'datetime')?.name || '';
+  if (!dateField) { container.innerHTML = '<p class="text-sm text-gray-400">No date field configured.</p>'; return; }
+
+  try {
+    const data = await fetchAllCached(sec.data_source);
+    if (!data.length) { if (emptyEl) emptyEl.classList.remove('hidden'); return; }
+    if (emptyEl) emptyEl.classList.add('hidden');
+
+    const buckets = timeSeriesBucket(data, dateField, 'day');
+    const titleField = entity.fields.find(f => f.type === 'string' && f.name.match(/name|title/i))?.name || entity.fields[0]?.name || '';
+    const sorted = Object.keys(buckets).sort().reverse();
+
+    container.innerHTML = sorted.slice(0, 30).map(day => `
+      <div class="border-b border-gray-100 pb-2">
+        <p class="text-xs font-medium text-gray-500 mb-1">${day}</p>
+        ${buckets[day].map(d => `<p class="text-sm text-gray-800 ml-2">${d[titleField] || '(item)'}</p>`).join('')}
+      </div>`).join('');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Section Init Registration (with error boundaries)
+// ═══════════════════════════════════════════════════════════════════════════
+function wrapInit(sectionId, fn) {
+  SECTION_INIT[sectionId] = async () => {
+    try { await fn(); }
+    catch (err) {
+      const el = document.getElementById('section-' + sectionId);
+      if (el) {
+        el.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-sm font-medium text-red-800">Failed to load section</p>
+          <p class="text-xs text-red-600 mt-1">${err.message}</p>
+          <button onclick="SECTION_INIT['${sectionId}']()" class="mt-2 text-xs text-red-700 underline">Retry</button>
+        </div>`;
+      }
+    }
+  };
+}
+
+(function registerSections() {
+  for (const page of PAGES) {
+    for (const sec of page.sections) {
+      switch (sec.type) {
+        case 'table':
+          wrapInit(sec.id, () => loadTableData(sec.id));
+          break;
+        case 'kpi_row':
+          wrapInit(sec.id, () => initKPI(sec.id));
+          break;
+{% if has_charts %}
+        case 'chart':
+          wrapInit(sec.id, () => initChart(sec.id));
+          break;
+{% endif %}
+        case 'card_grid':
+          wrapInit(sec.id, () => initCardGrid(sec.id));
+          break;
+        case 'form':
+          wrapInit(sec.id, () => {
+            const entity = ENTITIES[sec.data_source];
+            if (entity) renderForm(entity, null, 'form-fields-' + sec.id);
+          });
+          break;
+        case 'detail':
+          wrapInit(sec.id, () => initDetail(sec.id));
+          break;
+        case 'list':
+          wrapInit(sec.id, () => initList(sec.id));
+          break;
+        case 'calendar':
+          wrapInit(sec.id, () => initCalendar(sec.id));
+          break;
+      }
+    }
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════════════════════════════════════
+function showToast(message, type) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.className = `fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white transition-opacity ${type === 'error' ? 'bg-red-600' : 'bg-green-600'}`;
+  setTimeout(() => el.classList.add('opacity-0'), 2500);
+  setTimeout(() => { el.classList.add('hidden'); el.classList.remove('opacity-0'); }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const hashPage = window.location.hash.slice(1);
+  if (hashPage && PAGES.find(p => p.id === hashPage)) {
+    activePage = PAGES.find(p => p.id === hashPage);
+    switchPage(hashPage, false);
+  }
+{% if spec.auth.enabled %}
+  if (authToken) {
+    try {
+      const payload = JSON.parse(atob(authToken.split('.')[1]));
+      if (payload.exp && payload.exp * 1000 < Date.now()) { logout(); return; }
+      enterApp();
+    } catch { logout(); }
+  }
+{% else %}
+  initActivePage();
+{% endif %}
+});
+</script>
+</body>
+</html>

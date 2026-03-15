@@ -18,6 +18,10 @@ def init_folder(target_dir: Path, app_name: str = "My App") -> dict[str, Path]:
         EntitySpec,
         FieldType,
         HttpMethod,
+        PageLayout,
+        PageSection,
+        PageSpec,
+        SectionType,
         UISpec,
     )
 
@@ -53,7 +57,56 @@ def init_folder(target_dir: Path, app_name: str = "My App") -> dict[str, Path]:
             Endpoint(method=HttpMethod.PUT, path="/items/{id}", entity="Item", operation=CrudOperation.UPDATE),
             Endpoint(method=HttpMethod.DELETE, path="/items/{id}", entity="Item", operation=CrudOperation.DELETE),
         ],
-        ui=UISpec(framework="react"),
+        ui=UISpec(
+            framework="tailwind",
+            pages=[
+                PageSpec(
+                    id="dashboard",
+                    label="Dashboard",
+                    layout=PageLayout.DASHBOARD,
+                    is_default=True,
+                    sections=[
+                        PageSection(
+                            id="overview-kpis",
+                            type=SectionType.KPI_ROW,
+                            title="Overview",
+                            config={"metrics": [
+                                {"label": "Items", "data_source": "items", "aggregation": "count"},
+                            ]},
+                            col_span=3,
+                        ),
+                        PageSection(
+                            id="chart-items-status",
+                            type=SectionType.CHART,
+                            title="Items by Status",
+                            data_source="items",
+                            config={"chart_type": "pie", "group_by": "status", "aggregation": "count"},
+                        ),
+                        PageSection(
+                            id="chart-items-time",
+                            type=SectionType.CHART,
+                            title="Items over Time",
+                            data_source="items",
+                            config={"chart_type": "line", "x_field": "created_at", "aggregation": "count"},
+                        ),
+                    ],
+                ),
+                PageSpec(
+                    id="items",
+                    label="Items",
+                    data_collections=["items"],
+                    sections=[
+                        PageSection(
+                            id="table-items",
+                            type=SectionType.TABLE,
+                            title="Items",
+                            data_source="items",
+                            config={"page_size": 25},
+                        ),
+                    ],
+                ),
+            ],
+        ),
     )
 
     appspec_dir = target_dir / "appspec"

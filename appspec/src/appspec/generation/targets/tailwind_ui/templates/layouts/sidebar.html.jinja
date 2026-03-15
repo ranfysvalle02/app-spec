@@ -1,0 +1,15 @@
+{# Sidebar layout: first section in a sidebar, rest in the main area #}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+{% if current_page.sections %}
+  <div class="lg:col-span-1 space-y-6">
+    {% set current_section = current_page.sections[0] %}
+    {% include "sections/" ~ current_page.sections[0].type.value ~ ".html.jinja" %}
+  </div>
+  <div class="lg:col-span-3 space-y-6">
+{% for section in current_page.sections[1:] %}
+    {% set current_section = section %}
+    {% include "sections/" ~ section.type.value ~ ".html.jinja" %}
+{% endfor %}
+  </div>
+{% endif %}
+</div>

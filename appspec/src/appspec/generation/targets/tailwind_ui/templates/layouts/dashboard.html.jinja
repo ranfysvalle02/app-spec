@@ -1,0 +1,9 @@
+{# Dashboard layout: responsive CSS grid with col_span support #}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+{% for section in current_page.sections %}
+  <div class="{% if section.col_span == 3 %}md:col-span-2 lg:col-span-3{% elif section.col_span == 2 %}md:col-span-2 lg:col-span-2{% else %}col-span-1{% endif %}{% if section.row_span > 1 %} row-span-{{ section.row_span }}{% endif %}">
+    {% set current_section = section %}
+    {% include "sections/" ~ section.type.value ~ ".html.jinja" %}
+  </div>
+{% endfor %}
+</div>

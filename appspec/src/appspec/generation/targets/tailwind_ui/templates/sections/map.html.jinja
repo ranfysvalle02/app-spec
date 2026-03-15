@@ -1,0 +1,11 @@
+{# Map section — geo_point visualization (placeholder container) #}
+<div id="section-{{ current_section.id }}" class="bg-white rounded-lg border border-gray-200 shadow-sm">
+{% if current_section.title %}
+  <div class="px-4 py-3 border-b border-gray-100">
+    <h3 class="text-sm font-semibold text-gray-700">{{ current_section.title }}</h3>
+  </div>
+{% endif %}
+  <div id="map-{{ current_section.id }}" class="w-full" style="height: 350px; background: #f3f4f6;">
+    <p class="flex items-center justify-center h-full text-sm text-gray-400">Map loading…</p>
+  </div>
+</div>

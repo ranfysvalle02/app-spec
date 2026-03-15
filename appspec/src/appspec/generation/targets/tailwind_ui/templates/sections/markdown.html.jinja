@@ -1,0 +1,7 @@
+{# Markdown section — static rendered content #}
+<div id="section-{{ current_section.id }}" class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 prose prose-sm max-w-none">
+{% if current_section.title %}
+  <h3>{{ current_section.title }}</h3>
+{% endif %}
+  <div id="md-{{ current_section.id }}">{{ current_section.config.get('content', '') }}</div>
+</div>

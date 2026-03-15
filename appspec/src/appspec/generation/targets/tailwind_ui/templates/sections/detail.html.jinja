@@ -1,0 +1,13 @@
+{# Detail section — single-record read view #}
+<div id="section-{{ current_section.id }}" class="bg-white rounded-lg border border-gray-200 shadow-sm">
+{% if current_section.title %}
+  <div class="px-4 py-3 border-b border-gray-100">
+    <h3 class="text-sm font-semibold text-gray-700" id="detail-title-{{ current_section.id }}">{{ current_section.title }}</h3>
+  </div>
+{% endif %}
+  <dl id="detail-fields-{{ current_section.id }}" class="divide-y divide-gray-100 px-4">
+  </dl>
+  <div id="detail-empty-{{ current_section.id }}" class="hidden p-10 text-center text-gray-400">
+    No record selected.
+  </div>
+</div>

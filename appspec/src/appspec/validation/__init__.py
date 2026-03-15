@@ -9,6 +9,7 @@ from appspec.validation.schema import check_naming, check_cross_references
 from appspec.validation.quality import check_entity_quality, check_endpoint_quality, check_schema_design
 from appspec.validation.safety import check_safety
 from appspec.validation.engine_compat import check_engine_compat
+from appspec.validation.pages import check_pages
 
 if TYPE_CHECKING:
     from appspec.models import AppSpec
@@ -56,6 +57,7 @@ def validate(spec: "AppSpec") -> ValidationResult:
     check_schema_design(spec, issues)
     check_engine_compat(spec, issues)
     check_safety(spec, issues)
+    check_pages(spec, issues)
 
     has_errors = any(i.severity == "error" for i in issues)
     return ValidationResult(valid=not has_errors, issues=issues)
