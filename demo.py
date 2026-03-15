@@ -1266,6 +1266,13 @@ tailwind.config = {
   /* Glass card effect */
   .glass { background: rgba(17,17,20,0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); }
 
+  /* Tabs */
+  .tab-btn { color: rgba(161,161,170,0.6); }
+  .tab-btn::after { content: ''; position: absolute; bottom: -1px; left: 16px; right: 16px; height: 2px; border-radius: 1px; background: transparent; transition: background 0.2s, box-shadow 0.2s; }
+  .tab-btn:hover { color: rgba(228,228,231,0.8); background: rgba(255,255,255,0.02); }
+  .tab-btn.active { color: #a5b4fc; }
+  .tab-btn.active::after { background: linear-gradient(90deg, #818cf8, #34d399); box-shadow: 0 0 8px rgba(99,102,241,0.3); }
+
   /* Subtle noise texture */
   body::before {
     content: ''; position: fixed; inset: 0; z-index: -1; opacity: 0.03;
@@ -1587,44 +1594,31 @@ tailwind.config = {
       </div>
     </section>
 
-    <!-- ═══ History ═══ -->
+    <!-- ═══ History + About (Tabbed) ═══ -->
     <section id="history-section" class="animate-fade-up reveal visible" style="animation-delay: 0.2s">
-      <div class="glass rounded-2xl overflow-hidden">
-        <button onclick="document.getElementById('history-body').classList.toggle('hidden');this.querySelector('.chevron').classList.toggle('rotate-180');loadHistory()" class="w-full flex items-center justify-between px-6 py-4 text-left group">
-          <div class="flex items-center gap-3">
-            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-mint/15 flex items-center justify-center shrink-0">
-              <svg class="w-3.5 h-3.5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-zinc-200">History</span>
-              <span id="history-count" class="text-[10px] text-zinc-600 font-mono"></span>
-            </div>
-          </div>
-          <svg class="chevron w-4 h-4 text-zinc-500 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-        </button>
+      <div class="glass rounded-2xl overflow-hidden flex flex-col">
+        <!-- Tab bar -->
+        <div class="flex border-b border-white/[0.06]">
+          <button id="tab-btn-history" onclick="switchTab('history')" class="tab-btn flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-colors relative">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            History
+            <span id="history-count" class="text-[10px] font-mono"></span>
+          </button>
+          <button id="tab-btn-about" onclick="switchTab('about')" class="tab-btn flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-colors relative">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            About AppSpec
+          </button>
+        </div>
 
-        <div id="history-body" class="hidden border-t border-white/[0.04]">
+        <!-- History panel -->
+        <div id="tab-panel-history" class="tab-panel">
           <div id="history-list" class="p-4 space-y-2">
             <div class="text-center py-6 text-xs text-zinc-600">Loading...</div>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ═══ About / FAQ ═══ -->
-    <section class="animate-fade-up reveal visible" style="animation-delay: 0.25s">
-      <div class="glass rounded-2xl overflow-hidden">
-        <button onclick="document.getElementById('about-body').classList.toggle('hidden');this.querySelector('.chevron').classList.toggle('rotate-180')" class="w-full flex items-center justify-between px-6 py-4 text-left group">
-          <div class="flex items-center gap-3">
-            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-mint/15 flex items-center justify-center shrink-0">
-              <svg class="w-3.5 h-3.5 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-            <span class="text-sm font-semibold text-zinc-200">About AppSpec</span>
-          </div>
-          <svg class="chevron w-4 h-4 text-zinc-500 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-        </button>
-
-        <div id="about-body" class="hidden border-t border-white/[0.04]">
+        <!-- About panel -->
+        <div id="tab-panel-about" class="tab-panel hidden">
           <!-- Thesis -->
           <div class="px-6 pt-5 pb-2">
             <p class="text-sm text-zinc-300 leading-relaxed">
@@ -2225,8 +2219,7 @@ const IDEAS = [
   }
 })();
 
-// ── Auto-load history + generation counter on page init ───────
-loadHistory();
+// ── Auto-load generation counter on page init ───────
 
 async function loadGenCounter() {
   try {
@@ -2425,6 +2418,19 @@ function startGeneration() {
   });
 }
 
+/* ── Tabs ──────────────────────────────────────────────────────────── */
+
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  const btn = document.getElementById('tab-btn-' + id);
+  const panel = document.getElementById('tab-panel-' + id);
+  if (btn) btn.classList.add('active');
+  if (panel) panel.classList.remove('hidden');
+  if (id === 'history') loadHistory();
+}
+switchTab('history');
+
 /* ── History ───────────────────────────────────────────────────────── */
 
 let _historyLoaded = false;
@@ -2448,12 +2454,6 @@ async function loadHistory() {
         + (mdbCount ? `<span class="px-1.5 py-0.5 rounded bg-mint/10 text-mint">MDB ${mdbCount}</span>` : '')
         + (pgCount ? `<span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">PG ${pgCount}</span>` : '')
         + `</span>`;
-      const body = document.getElementById('history-body');
-      if (body && body.classList.contains('hidden') && !_historyLoaded) {
-        body.classList.remove('hidden');
-        const chevron = document.querySelector('#history-section .chevron');
-        if (chevron) chevron.classList.add('rotate-180');
-      }
     }
 
     if (!items.length) {
