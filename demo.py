@@ -1366,7 +1366,7 @@ tailwind.config = {
             <div class="w-5 h-5 rounded bg-gradient-to-br from-accent/30 to-mint/30 flex items-center justify-center shrink-0">
               <svg class="w-3 h-3 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
-            <span class="text-xs text-zinc-400">The <span class="text-zinc-300 font-medium">Document Model</span> for enterprise-safe AI code gen</span>
+            <span class="text-xs text-zinc-400">Every application is a <span class="text-zinc-300 font-medium">document</span></span>
           </div>
           <div class="flex items-center gap-1.5 text-[10px] text-zinc-600 group-hover:text-zinc-400 transition-colors">
             <span>What is AppSpec?</span>
@@ -1380,34 +1380,34 @@ tailwind.config = {
         <div class="absolute -top-24 -right-24 w-56 h-56 bg-accent/10 rounded-full blur-3xl pointer-events-none"></div>
         <div class="absolute -bottom-16 -left-16 w-40 h-40 bg-mint/10 rounded-full blur-3xl pointer-events-none"></div>
         <div class="relative">
-          <h2 class="text-2xl font-bold text-zinc-100 tracking-tight">The <span class="grad-text">Document Model</span> that makes AI code gen enterprise-safe</h2>
+          <h2 class="text-2xl font-bold text-zinc-100 tracking-tight">Every application is a <span class="grad-text">document</span></h2>
           <p class="text-sm text-zinc-400 mt-3 max-w-2xl leading-relaxed">
-            AI is great at creativity. It's terrible at consistency. AppSpec solves this by separating
-            <em>what to build</em> (AI-generated JSON spec) from <em>how to build it</em> (deterministic templates).
-            Language agnostic. Database agnostic. Every generated app compiles, passes validation,
-            and follows your organization's security patterns &mdash; because templates enforce them, not luck.
+            Custom apps are naturally flexible and nested &mdash; entities, relationships, endpoints, auth
+            rules &mdash; each shaped differently. That's a document. When AI generates this structured
+            spec instead of raw code, there's nothing left to hallucinate. No phantom imports. No invented
+            dependencies. Just a validated document that compiles into production-ready code for any stack.
           </p>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
             <div class="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors group">
               <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
                 <svg class="w-4 h-4 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               </div>
-              <h3 class="text-sm font-medium text-zinc-200">AI for Creativity</h3>
-              <p class="text-xs text-zinc-500 mt-1.5 leading-relaxed">The LLM designs your app's data model, relationships, and endpoints as a validated JSON document. No code, no hallucinations.</p>
+              <h3 class="text-sm font-medium text-zinc-200">Describe, Don't Code</h3>
+              <p class="text-xs text-zinc-500 mt-1.5 leading-relaxed">The AI designs your application as a rich JSON document &mdash; data models, relationships, endpoints. Structure it can reason about, not syntax it can fumble.</p>
             </div>
             <div class="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors group">
               <div class="w-8 h-8 rounded-lg bg-mint/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
                 <svg class="w-4 h-4 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
               </div>
-              <h3 class="text-sm font-medium text-zinc-200">Templates for Safety</h3>
-              <p class="text-xs text-zinc-500 mt-1.5 leading-relaxed">Deterministic Jinja2 templates enforce pinned dependency versions, auth patterns, Docker configs, and security best practices.</p>
+              <h3 class="text-sm font-medium text-zinc-200">Compile, Don't Hope</h3>
+              <p class="text-xs text-zinc-500 mt-1.5 leading-relaxed">Deterministic templates transform the spec into production code with pinned versions, auth patterns, and security practices. Same input, same output. Every time.</p>
             </div>
             <div class="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors group">
               <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
                 <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
               </div>
-              <h3 class="text-sm font-medium text-zinc-200">Stack Agnostic</h3>
-              <p class="text-xs text-zinc-500 mt-1.5 leading-relaxed">Same spec targets Python or TypeScript, MongoDB or PostgreSQL. Switch stacks without rewriting your app definition.</p>
+              <h3 class="text-sm font-medium text-zinc-200">One Spec, Any Stack</h3>
+              <p class="text-xs text-zinc-500 mt-1.5 leading-relaxed">The same document targets Python or TypeScript, MongoDB or PostgreSQL. Your application definition outlives any framework decision.</p>
             </div>
           </div>
         </div>
