@@ -883,6 +883,12 @@ def _build_preview_page(html: str, session_id: str, spec, stack: str = "") -> st
 
     shim_js = """<script>
 (function(){
+  // Auto-login: set a valid fake JWT so the app never shows the auth screen in preview
+  const _previewJwt = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.' +
+    btoa(JSON.stringify({sub:'preview_user',role:'admin',exp:9999999999}))
+      .replace(/=/g,'') + '.preview';
+  localStorage.setItem('appspec_token', _previewJwt);
+
   const _S = __PREVIEW_SPEC__;
   const _D = __PREVIEW_DATA__;
   const db = {};

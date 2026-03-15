@@ -163,7 +163,7 @@ function enterApp() {
     const payload = JSON.parse(atob(authToken.split('.')[1]));
     document.getElementById('user-badge').textContent = payload.sub + (payload.role ? ` (${payload.role})` : '');
   } catch {}
-  initActivePage();
+  requestAnimationFrame(() => initActivePage());
 }
 
 function logout() {
@@ -752,8 +752,17 @@ async function initChart(sectionId) {
 
     if (chartInstances[sectionId]) chartInstances[sectionId].destroy();
 
-    if (cfg.group_by) {
-      const grouped = groupBy(data, cfg.group_by);
+    let groupField = cfg.group_by;
+    if (!groupField && !cfg.x_field) {
+      const entity = ENTITIES[sec.data_source];
+      if (entity) {
+        const enumF = entity.fields.find(f => f.enumValues && f.enumValues.length);
+        if (enumF) groupField = enumF.name;
+      }
+    }
+
+    if (groupField) {
+      const grouped = groupBy(data, groupField);
       const labels = Object.keys(grouped);
       const values = labels.map(l => {
         if (cfg.aggregation === 'count') return grouped[l].length;
@@ -795,6 +804,8 @@ async function initChart(sectionId) {
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
       });
+    } else {
+      canvas.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-sm text-gray-400">No chart configuration available</div>';
     }
   } catch (err) {
     console.error('Chart init error:', err);
