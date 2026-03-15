@@ -140,6 +140,8 @@ app = engine.create_app(
                 {"type": "regular", "keys": {"created_at": -1}, "name": "created_at_sort"},
                 {"type": "regular", "keys": {"slug": 1, "created_at": -1}, "name": "slug_time_idx"},
                 {"type": "regular", "keys": {"session_id": 1}, "name": "session_id_idx", "unique": True},
+                {"type": "ttl", "keys": {"created_at": 1}, "name": "ttl_24h",
+                 "options": {"expireAfterSeconds": 86400}},
             ]
         },
     },
@@ -169,6 +171,40 @@ class _LRUCache(collections.OrderedDict):
 
 _sessions: _LRUCache = _LRUCache(_SESSION_MAX)
 
+# ── Generation counter (persistent via MongoDB counters collection) ───────────
+
+_generation_count: int = 0
+
+
+async def _load_generation_count() -> None:
+    """Load the all-time generation counter from MongoDB on startup."""
+    global _generation_count
+    try:
+        db = await engine.get_scoped_db(APP_SLUG)
+        doc = await db.counters.find_one({"_id": "generation_count"})
+        if doc:
+            _generation_count = doc.get("value", 0)
+        log.info("Generation counter loaded: %d", _generation_count)
+    except Exception:
+        log.warning("Could not load generation counter from MongoDB")
+
+
+async def _increment_generation_count() -> int:
+    """Atomically increment and return the new generation count."""
+    global _generation_count
+    _generation_count += 1
+    try:
+        db = await engine.get_scoped_db(APP_SLUG)
+        await db.counters.update_one(
+            {"_id": "generation_count"},
+            {"$inc": {"value": 1}},
+            upsert=True,
+        )
+    except Exception:
+        log.warning("Could not persist generation counter to MongoDB")
+    return _generation_count
+
+
 # ── Rate limiter (per-IP, sliding window) ────────────────────────────────────
 
 _RATE_LIMIT = int(os.environ.get("APPSPEC_RATE_LIMIT", "10"))  # per minute
@@ -185,6 +221,43 @@ def _check_rate_limit(ip: str) -> bool:
         return False
     hits.append(now)
     return True
+
+
+# ── Prompt sanitization ──────────────────────────────────────────────────────
+
+import re as _re
+
+_INJECTION_PATTERNS = [
+    _re.compile(r"ignore\s+(all\s+)?(previous|above|prior)\s+(instructions|prompts|rules)", _re.IGNORECASE),
+    _re.compile(r"(disregard|forget|override)\s+(your|the|all)\s+(instructions|rules|prompt|system)", _re.IGNORECASE),
+    _re.compile(r"you\s+are\s+now\s+(a|an|no longer)", _re.IGNORECASE),
+    _re.compile(r"(output|print|reveal|show|repeat)\s+(the\s+)?(system\s+prompt|instructions|rules)", _re.IGNORECASE),
+    _re.compile(r"```\s*(system|prompt|instruction)", _re.IGNORECASE),
+    _re.compile(r"<\s*(script|img|iframe|svg|object|embed)\b", _re.IGNORECASE),
+    _re.compile(r"javascript\s*:", _re.IGNORECASE),
+]
+
+_PROMPT_MAX_LINES = 20
+
+
+def _sanitize_prompt(prompt: str) -> tuple[str, str | None]:
+    """Clean and validate user prompt. Returns (cleaned, error_or_None)."""
+    prompt = prompt.strip()
+    if not prompt:
+        return prompt, "Prompt cannot be empty"
+
+    for pat in _INJECTION_PATTERNS:
+        if pat.search(prompt):
+            log.warning("Prompt injection attempt blocked: %s", prompt[:80])
+            return "", "That prompt looks like an injection attempt. Please describe an application instead."
+
+    lines = prompt.splitlines()
+    if len(lines) > _PROMPT_MAX_LINES:
+        prompt = "\n".join(lines[:_PROMPT_MAX_LINES])
+
+    prompt = _re.sub(r'[^\x20-\x7E\n\t\u00C0-\u024F\u0400-\u04FF]', '', prompt)
+
+    return prompt, None
 
 
 # ── Concurrency cap & timeout ─────────────────────────────────────────────────
@@ -245,6 +318,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(_SecurityHeadersMiddleware)
+app.add_event_handler("startup", _load_generation_count)
 
 
 def _backfill_sample_refs(spec) -> dict:
@@ -1210,9 +1284,16 @@ tailwind.config = {
           <p class="text-[11px] text-zinc-500 leading-tight">The Document Model for AI Code Generation</p>
         </div>
       </div>
-      <a href="https://github.com/mongodb/appspec" target="_blank" class="text-zinc-500 hover:text-zinc-300 transition-colors">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-      </a>
+      <div class="flex items-center gap-3">
+        <div id="gen-counter" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 border border-accent/20">
+          <svg class="w-3 h-3 text-accent-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <span id="gen-counter-value" class="text-[11px] font-bold text-accent-bright tabular-nums"></span>
+          <span class="text-[10px] text-zinc-500">apps generated</span>
+        </div>
+        <a href="https://github.com/mongodb/appspec" target="_blank" class="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
     </div>
   </header>
 
@@ -2092,8 +2173,27 @@ const IDEAS = [
   }
 })();
 
-// ── Auto-load history on page init ────────────────────────────
+// ── Auto-load history + generation counter on page init ───────
 loadHistory();
+
+async function loadGenCounter() {
+  try {
+    const res = await fetch('/api/stats');
+    if (!res.ok) return;
+    const data = await res.json();
+    const count = data.total_generations || 0;
+    if (count > 0) {
+      const el = document.getElementById('gen-counter');
+      const val = document.getElementById('gen-counter-value');
+      if (el && val) {
+        val.textContent = count.toLocaleString();
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+      }
+    }
+  } catch {}
+}
+loadGenCounter();
 
 function collapseHero() {
   const full = document.getElementById('hero-full');
@@ -2186,6 +2286,15 @@ function startGeneration() {
       document.getElementById('download-btn').href = '/download/' + d.session_id;
       document.getElementById('actions-section').classList.remove('hidden');
       document.getElementById('actions-section').classList.add('visible');
+      if (d.generation_number) {
+        const el = document.getElementById('gen-counter');
+        const val = document.getElementById('gen-counter-value');
+        if (el && val) {
+          val.textContent = Number(d.generation_number).toLocaleString();
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        }
+      }
     }
     if (d.spec_json) {
       _specData = JSON.parse(d.spec_json);
@@ -2398,6 +2507,19 @@ async def readyz():
     return JSONResponse(checks, status_code=200 if ready else 503)
 
 
+@app.get("/api/stats")
+async def stats(request: Request):
+    """Return generation stats including the all-time counter."""
+    auth_err = _check_api_key(request)
+    if auth_err:
+        return auth_err
+    return JSONResponse({
+        "total_generations": _generation_count,
+        "active_sessions": len(_sessions),
+        "max_sessions": _SESSION_MAX,
+    })
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     nonce = getattr(request.state, "csp_nonce", "")
@@ -2406,13 +2528,25 @@ async def index(request: Request):
     )
 
 
-from pydantic import BaseModel, Field as PydField
+from pydantic import BaseModel, Field as PydField, model_validator
+
+
+_VALID_ENGINES = {"mongodb", "postgresql"}
+_VALID_STACKS = {"python-fastapi", "typescript-express"}
 
 
 class _GenerateRequest(BaseModel):
     prompt: str = PydField(..., max_length=500)
     engine: str = PydField("mongodb")
     stack: str = PydField("python-fastapi")
+
+    @model_validator(mode="after")
+    def _check_whitelist(self):
+        if self.engine not in _VALID_ENGINES:
+            raise ValueError(f"engine must be one of {sorted(_VALID_ENGINES)}")
+        if self.stack not in _VALID_STACKS:
+            raise ValueError(f"stack must be one of {sorted(_VALID_STACKS)}")
+        return self
 
 
 @app.post("/generate/stream")
@@ -2460,6 +2594,12 @@ async def generate_stream(request: Request, body: _GenerateRequest):
             except ImportError:
                 yield send({"step": "schema", "status": "error",
                              "detail": "LLM support not installed. Run: pip install appspec[llm]"})
+                yield send({"done": True})
+                return
+
+            prompt, sanitize_err = _sanitize_prompt(prompt)
+            if sanitize_err:
+                yield send({"step": "schema", "status": "error", "detail": sanitize_err})
                 yield send({"done": True})
                 return
 
@@ -2592,7 +2732,9 @@ async def generate_stream(request: Request, body: _GenerateRequest):
             except Exception:
                 log.exception("Failed to persist generation %s to MongoDB", session_id)
 
-            yield send({"files": files, "session_id": session_id, "spec_json": spec.to_json()})
+            count = await _increment_generation_count()
+            yield send({"files": files, "session_id": session_id, "spec_json": spec.to_json(),
+                         "generation_number": count})
             yield send({"done": True})
 
           except TimeoutError:
