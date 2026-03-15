@@ -33,6 +33,7 @@ import zipfile
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
+from pymongo import ReturnDocument
 
 load_dotenv()
 
@@ -171,38 +172,34 @@ class _LRUCache(collections.OrderedDict):
 
 _sessions: _LRUCache = _LRUCache(_SESSION_MAX)
 
-# ── Generation counter (persistent via MongoDB counters collection) ───────────
-
-_generation_count: int = 0
+# ── Generation counter (MongoDB is the single source of truth) ────────────────
 
 
-async def _load_generation_count() -> None:
-    """Load the all-time generation counter from MongoDB on startup."""
-    global _generation_count
+async def _get_generation_count() -> int:
+    """Read the all-time generation counter directly from MongoDB."""
     try:
         db = await engine.get_scoped_db(APP_SLUG)
         doc = await db.counters.find_one({"_id": "generation_count"})
-        if doc:
-            _generation_count = doc.get("value", 0)
-        log.info("Generation counter loaded: %d", _generation_count)
+        return doc.get("value", 0) if doc else 0
     except Exception:
-        log.warning("Could not load generation counter from MongoDB")
+        log.warning("Could not read generation counter from MongoDB")
+        return 0
 
 
 async def _increment_generation_count() -> int:
-    """Atomically increment and return the new generation count."""
-    global _generation_count
-    _generation_count += 1
+    """Atomically increment and return the new generation count via MongoDB."""
     try:
         db = await engine.get_scoped_db(APP_SLUG)
-        await db.counters.update_one(
+        doc = await db.counters.find_one_and_update(
             {"_id": "generation_count"},
             {"$inc": {"value": 1}},
             upsert=True,
+            return_document=ReturnDocument.AFTER,
         )
+        return doc["value"]
     except Exception:
-        log.warning("Could not persist generation counter to MongoDB")
-    return _generation_count
+        log.exception("Could not increment generation counter in MongoDB")
+        return 0
 
 
 # ── Rate limiter (per-IP, sliding window) ────────────────────────────────────
@@ -318,7 +315,6 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(_SecurityHeadersMiddleware)
-app.add_event_handler("startup", _load_generation_count)
 
 
 def _backfill_sample_refs(spec) -> dict:
@@ -2584,7 +2580,7 @@ async def stats(request: Request):
     if auth_err:
         return auth_err
     return JSONResponse({
-        "total_generations": _generation_count,
+        "total_generations": await _get_generation_count(),
         "active_sessions": len(_sessions),
         "max_sessions": _SESSION_MAX,
     })
